@@ -1,5 +1,4 @@
 import requests
-import re
 import os
 from bs4 import BeautifulSoup
 from immo_data import ImmoData, ReportType
@@ -33,34 +32,17 @@ def _get_results_of_type(type: ReportType):
     # Find all the relevant listings
     listings = soup.find_all('div', {'class': 'EstateItem-1c115'})
 
-    return list(map(lambda x: _get_immo_data(x), listings))
+    return list(map(lambda x: _get_immo_data(type, x), listings))
 
 
-def _get_immo_data(listing):
+def _get_immo_data(type, listing):
     price = listing.find('div', {'data-test': 'price'}).text.strip()
     area = listing.find('div', {'data-test': 'area'}).text.strip()
-    ratio = None
-
-    if _is_not_empty(price) and _is_not_empty(area):
-        ratio = _get_int_value_from_string(
-            price) / _get_int_value_from_string(area)
 
     return ImmoData(
         link=listing.find('a')['href'],
         title=listing.find('h2').text.strip(),
         price=price,
         area=area,
-        type=ReportType.HOUSE,
-        ratio=ratio
+        type=type
     )
-
-
-def _get_int_value_from_string(input_string):
-    try:
-        return int(re.sub('[^0-9]', '', input_string))
-    except Exception as e:
-        print(e)
-
-
-def _is_not_empty(input_string):
-    return input_string is not None and bool(input_string.strip())
