@@ -1,38 +1,55 @@
 import requests
 import os
 from bs4 import BeautifulSoup
-from immo_data import ImmoData, ReportType
+from src.immo_data import ImmoData, ReportType
 
-URL = 'https://www.immowelt.de/liste/***/+++/kaufen?d=true&sd=DESC&sf=RELEVANCE&sp=1'
+URL = 'https://www.immowelt.de/liste/***/+++/kaufen?d=true&sd=DESC&sf=RELEVANCE&sp=$$$&r=§§§'
 
 
-def get_results():
+def get_immowelt_results():
     return _get_results_of_type(ReportType.HOUSE) + _get_results_of_type(ReportType.LAND)
 
 
-def _get_results_of_type(type: ReportType):
+def _get_url_without_page():
     location = os.getenv('LOCATION')
+    radius = os.getenv('RADIUS')
     url = URL.replace('***', location)
+    url = url.replace('§§§', radius)
     replacement_string = 'haeuser'
     if (type == ReportType.LAND):
         replacement_string = 'grundstuecke'
-    url = url.replace('+++', replacement_string)
+    return url.replace('+++', replacement_string)
 
+
+def _get_results_of_type(type: ReportType):
     # Set the search parameters
     price_upper_limit = os.getenv('PRICE_UPPER_LIMIT')
     params = {'pma': f'{price_upper_limit}'}
 
+    # Find all the relevant listings
+    listings = []
+
+    index = 1
+    while True:
+        url = _get_url_without_page().replace('$$$', str(index))
+        print(url)
+        soup = _get_soup(url, params)
+        new_listings = soup.find_all('div', {'class': 'EstateItem-1c115'})
+        listings += new_listings
+        index += 1
+        if len(new_listings) < 20:
+            break
+
+    return list(map(lambda x: _get_immo_data(type, x), listings))
+
+
+def _get_soup(url, params):
     # Send the request and get the HTML response
     response = requests.get(url, params=params)
     html = response.content
 
     # Parse the HTML response with BeautifulSoup
-    soup = BeautifulSoup(html, 'html.parser')
-
-    # Find all the relevant listings
-    listings = soup.find_all('div', {'class': 'EstateItem-1c115'})
-
-    return list(map(lambda x: _get_immo_data(type, x), listings))
+    return BeautifulSoup(html, 'html.parser')
 
 
 def _get_immo_data(type, listing):

@@ -2,7 +2,7 @@ import openpyxl
 from openpyxl.styles import PatternFill
 from dotenv import load_dotenv
 
-from immowelt import get_results
+from src.immowelt import get_immowelt_results
 
 # Load the environment variables from the .env file
 load_dotenv()
@@ -28,8 +28,10 @@ def _get_cell_style(type, value):
     green = '008000'
     yellow = 'FFFF00'
     red = 'FF0000'
-    color = None
+    color = 'FFFFF0'
     limits = type.get_limits()
+    if value is None:
+        return PatternFill(start_color=color, end_color=color, fill_type='solid')
     if value > 0:
         color = green
     if value >= limits[0]:
@@ -37,14 +39,15 @@ def _get_cell_style(type, value):
     if value > limits[1]:
         color = red
 
-    print(f'ratio: {value}, color: {color}')
     return PatternFill(start_color=color, end_color=color, fill_type='solid')
 
 
 def _load_and_store_data():
     workbook = _create_workbook()
     worksheet = workbook.active
-    results = get_results()
+    results = get_immowelt_results()
+    results = sorted(results, key=lambda result: (
+        result.type.name, result.ratio))
 
     for row, result in enumerate(results, start=2):
         worksheet.cell(row=row, column=1, value=result.type.name)

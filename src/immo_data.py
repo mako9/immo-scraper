@@ -1,5 +1,6 @@
 import re
 from enum import Enum
+from src.utils import is_not_empty
 
 
 class ReportType(Enum):
@@ -24,7 +25,7 @@ class ImmoData:
     def __init__(self, title, price, area, link, type):
         ratio = None
 
-        if _is_not_empty(price) and _is_not_empty(area):
+        if is_not_empty(price) and is_not_empty(area):
             ratio = _get_int_value_from_string(
                 price.replace('.', '')) / _get_int_value_from_string(area)
 
@@ -39,11 +40,7 @@ class ImmoData:
 def _get_int_value_from_string(input_string):
     try:
         match = re.search(r'\d+(\.\d+)?', input_string)
-        if match:
+        if match is not None:
             return float(match.group())
-    except Exception as e:
+    except TypeError as e:
         print(e)
-
-
-def _is_not_empty(input_string):
-    return input_string is not None and bool(input_string.strip())
