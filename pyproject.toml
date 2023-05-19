@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "immo-scraper"
+version = "0.0.1"
+description = "Collects and processes data from different real estate platforms."
+authors = ["Mario Kohlhoff"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+python-dotenv = "^1.0.0"
+openpyxl = "^3.1.2"
+requests = "^2.30.0"
+bs4 = "^0.0.1"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
