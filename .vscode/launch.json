@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "configurations": [
+    {
+      "name": "immo_scraper",
+      "type": "python",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "module": "poetry",
+      "args": ["run", "python", "main.py"]
+    }
+  ]
+}
