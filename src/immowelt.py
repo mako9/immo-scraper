@@ -10,7 +10,7 @@ def get_immowelt_results():
     return _get_results_of_type(ReportType.HOUSE) + _get_results_of_type(ReportType.LAND)
 
 
-def _get_url_without_page():
+def _get_url_without_page(type: ReportType):
     location = os.getenv('LOCATION')
     radius = os.getenv('RADIUS')
     url = URL.replace('***', location)
@@ -28,10 +28,11 @@ def _get_results_of_type(type: ReportType):
 
     # Find all the relevant listings
     listings = []
+    url_without_page = _get_url_without_page(type)
 
     index = 1
     while True:
-        url = _get_url_without_page().replace('$$$', str(index))
+        url = url_without_page.replace('$$$', str(index))
         print(url)
         soup = _get_soup(url, params)
         new_listings = soup.find_all('div', {'class': 'EstateItem-1c115'})
@@ -43,7 +44,7 @@ def _get_results_of_type(type: ReportType):
     return list(map(lambda x: _get_immo_data(type, x), listings))
 
 
-def _get_soup(url, params):
+def _get_soup(url: str, params):
     # Send the request and get the HTML response
     response = requests.get(url, params=params)
     html = response.content
@@ -52,7 +53,7 @@ def _get_soup(url, params):
     return BeautifulSoup(html, 'html.parser')
 
 
-def _get_immo_data(type, listing):
+def _get_immo_data(type: ReportType, listing):
     price = listing.find('div', {'data-test': 'price'}).text.strip()
     area = listing.find('div', {'data-test': 'area'}).text.strip()
 
