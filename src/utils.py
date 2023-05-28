@@ -1,3 +1,11 @@
+import re
 
-def is_not_empty(input_string):
-    return input_string is not None and bool(input_string.strip())
+def get_int_value_from_string(input_string):
+    try:
+        numbers = re.findall(r'\d+', input_string.replace('.', '').replace(',', '.'))
+        if len(numbers) > 0:
+            return float(numbers[0])
+        else:
+            return -1
+    except TypeError as e:
+        print(e)

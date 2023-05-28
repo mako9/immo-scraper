@@ -3,6 +3,7 @@ from openpyxl.styles import PatternFill
 from dotenv import load_dotenv
 
 from src.immowelt import get_immowelt_results
+from src.immonet import get_immonet_results
 
 # Load the environment variables from the .env file
 load_dotenv()
@@ -45,7 +46,7 @@ def _get_cell_style(type, value):
 def _load_and_store_data():
     workbook = _create_workbook()
     worksheet = workbook.active
-    results = get_immowelt_results()
+    results = get_immowelt_results() + get_immonet_results()
     results = sorted(results, key=lambda result: (
         result.type.name, result.ratio))
 
