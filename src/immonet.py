@@ -46,9 +46,9 @@ def _get_results_of_type(type: ReportType):
         soup = _get_soup(url, params)
         new_listings = soup.find_all('sd-card')
         listings += new_listings
-        index += 1
         if len(listings) >= total_count or len(new_listings) < 20:
             break
+        index += 1
 
     return list(map(lambda x: _get_immo_data(type, x), listings))
 

@@ -1,13 +1,15 @@
+import os
 import openpyxl
 from openpyxl.styles import PatternFill
 from dotenv import load_dotenv
 
+from src.immo_platform import ImmoPlatform
 from src.immowelt import get_immowelt_results
 from src.immonet import get_immonet_results
+from src.immoscout import get_immoscout_results
 
 # Load the environment variables from the .env file
 load_dotenv()
-
 
 def _create_workbook():
     # create a new workbook and select the active worksheet
@@ -46,7 +48,7 @@ def _get_cell_style(type, value):
 def _load_and_store_data():
     workbook = _create_workbook()
     worksheet = workbook.active
-    results = get_immowelt_results() + get_immonet_results()
+    results = _get_results()
     results = sorted(results, key=lambda result: (
         result.type.name, result.ratio))
 
@@ -61,6 +63,20 @@ def _load_and_store_data():
 
     workbook.save('immo-results.xlsx')
 
+def _get_results():
+    return _get_result_for_platform(ImmoPlatform.IMMONET) + _get_result_for_platform(ImmoPlatform.IMMOSCOUT) + _get_result_for_platform(ImmoPlatform.IMMOWELT)
+
+def _get_result_for_platform(platform: ImmoPlatform):
+    env = os.getenv(platform.value)
+    if env != 'active':
+        return []
+    
+    if platform == ImmoPlatform.IMMONET:
+        return get_immonet_results()
+    if platform == ImmoPlatform.IMMOSCOUT:
+        return get_immoscout_results()
+    if platform == ImmoPlatform.IMMOWELT:
+        return get_immowelt_results()
 
 # Load and store data in .xls file
 _load_and_store_data()

@@ -37,9 +37,9 @@ def _get_results_of_type(type: ReportType):
         soup = _get_soup(url, params)
         new_listings = soup.find_all('div', {'class': 'EstateItem-1c115'})
         listings += new_listings
-        index += 1
         if len(new_listings) < 20:
             break
+        index += 1
 
     return list(map(lambda x: _get_immo_data(type, x), listings))
 
