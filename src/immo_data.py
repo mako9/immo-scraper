@@ -27,4 +27,7 @@ class ImmoData:
         self.area = get_int_value_from_string(area)
         self.link = link
         self.type = type
-        self.ratio = self.price / self.area
+        if self.area != 0:
+            self.ratio = self.price / self.area
+        else:
+            self.ratio = -1
