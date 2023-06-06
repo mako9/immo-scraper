@@ -16,11 +16,12 @@ session_id: str = None
 driver = None
 
 def get_immoscout_results():
-    results = _get_results_of_type(ReportType.HOUSE) + _get_results_of_type(ReportType.LAND)
+    house_listings = _get_results_of_type(ReportType.HOUSE)
+    land_listings = _get_results_of_type(ReportType.LAND)
 
     driver.quit()
 
-    return results
+    return house_listings, land_listings
 
 
 def _get_url_without_page(type: ReportType):
@@ -84,13 +85,20 @@ def _get_immo_data(type, listing):
     infos = listing.findAll(
         'dd', {'class': 'font-highlight font-tabular'})
     price = infos[0].text.strip()
-    area = infos[1].text.strip()
+    living_area = None
+    if type == ReportType.HOUSE:
+        living_area = infos[1].text.strip()
+        land_area = infos[3].text.strip()
+    else:
+        land_area = infos[1].text.strip()
 
     return ImmoData(
         link='https://www.immobilienscout24.de' +
         listing.find('a', {'class': 'result-list-entry__brand-title-container'})['href'],
         title=listing.find('h2').text.strip(),
         price=price,
-        area=area,
-        type=type
+        living_area=living_area,
+        land_area=land_area,
+        type=type,
+        distance=None
     )

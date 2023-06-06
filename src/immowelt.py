@@ -7,7 +7,7 @@ URL = 'https://www.immowelt.de/liste/***/+++/kaufen?d=true&sd=DESC&sf=RELEVANCE&
 
 
 def get_immowelt_results():
-    return _get_results_of_type(ReportType.HOUSE) + _get_results_of_type(ReportType.LAND)
+    return _get_results_of_type(ReportType.HOUSE), _get_results_of_type(ReportType.LAND)
 
 
 def _get_url_without_page(type: ReportType):
@@ -55,12 +55,21 @@ def _get_soup(url: str, params):
 
 def _get_immo_data(type: ReportType, listing):
     price = listing.find('div', {'data-test': 'price'}).text.strip()
-    area = listing.find('div', {'data-test': 'area'}).text.strip()
+    elements = listing.findAll('span')
+    distance = elements[1].text.strip()
+    living_area = None
+    land_area = None
+    if len(elements) > 2:
+        land_area = elements[2].text.strip()
+    if type == ReportType.HOUSE:
+        living_area = listing.find('div', {'data-test': 'area'}).text.strip()
 
     return ImmoData(
         link=listing.find('a')['href'],
         title=listing.find('h2').text.strip(),
         price=price,
-        area=area,
-        type=type
+        living_area=living_area,
+        land_area=land_area,
+        type=type,
+        distance=distance
     )
