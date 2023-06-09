@@ -1,6 +1,4 @@
-import os
 from bs4 import BeautifulSoup
-from src.immo_data import ImmoData, ReportType
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -9,7 +7,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-URL = 'https://www.immobilienscout24.de/Suche/radius/+++?centerofsearchaddress=Fulda%20(Kreis);;;1276007005017;;$$$&geocoordinates=50.54398;9.7184;§§§.0&enteredFrom=one_step_search&pagenumber=***&price=-###'
+from src.url import get_url_without_page, get_url_with_page
+from src.immo_data import ImmoData, ReportType
+from src.immo_platform import ImmoPlatform
+
+URL = 'https://www.immobilienscout24.de/Suche/radius/+++?centerofsearchaddress=Fulda%20(Kreis);;;1276007005017;;***&geocoordinates=50.54398;9.7184;§§§.0&enteredFrom=one_step_search&pagenumber=$$$&price=-###'
 
 executor_url: str = None
 session_id: str = None
@@ -25,28 +27,17 @@ def get_immoscout_results():
 
 
 def _get_url_without_page(type: ReportType):
-    location = os.getenv('LOCATION')
-    radius = os.getenv('RADIUS')
-    price_upper_limit = os.getenv('PRICE_UPPER_LIMIT')
-    url = URL.replace('$$$', location)
-    url = url.replace('§§§', radius)
-    url = url.replace('###', price_upper_limit)
-    replacement_string = 'grundstueck-kaufen'
-    if (type == ReportType.HOUSE):
-        replacement_string = 'haus-kaufen'
-    return url.replace('+++', replacement_string)
+    return get_url_without_page(URL, ImmoPlatform.IMMOSCOUT, type)
 
 
 def _get_results_of_type(type: ReportType):
-    # Set the search parameters
-
     # Find all the relevant listings
     listings = []
     url_without_page = _get_url_without_page(type)
 
     index = 1
     while True:
-        url = url_without_page.replace('***', str(index))
+        url = get_url_with_page(url_without_page, index)
         print(url)
         soup = _get_soup(url)
         new_listings = soup.find_all('li', {'class': 'result-list__listing'})

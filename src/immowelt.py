@@ -1,7 +1,10 @@
 import requests
 import os
 from bs4 import BeautifulSoup
+
+from src.url import get_url_without_page, get_url_with_page
 from src.immo_data import ImmoData, ReportType
+from src.immo_platform import ImmoPlatform
 
 URL = 'https://www.immowelt.de/liste/***/+++/kaufen?d=true&sd=DESC&sf=RELEVANCE&sp=$$$&r=§§§'
 
@@ -11,14 +14,7 @@ def get_immowelt_results():
 
 
 def _get_url_without_page(type: ReportType):
-    location = os.getenv('LOCATION')
-    radius = os.getenv('RADIUS')
-    url = URL.replace('***', location)
-    url = url.replace('§§§', radius)
-    replacement_string = 'haeuser'
-    if (type == ReportType.LAND):
-        replacement_string = 'grundstuecke'
-    return url.replace('+++', replacement_string)
+    return get_url_without_page(URL, ImmoPlatform.IMMOWELT, type)
 
 
 def _get_results_of_type(type: ReportType):
@@ -32,7 +28,7 @@ def _get_results_of_type(type: ReportType):
 
     index = 1
     while True:
-        url = url_without_page.replace('$$$', str(index))
+        url = get_url_with_page(url_without_page, index)
         print(url)
         soup = _get_soup(url, params)
         new_listings = soup.find_all('div', {'class': 'EstateItem-1c115'})
@@ -56,13 +52,13 @@ def _get_soup(url: str, params):
 def _get_immo_data(type: ReportType, listing):
     price = listing.find('div', {'data-test': 'price'}).text.strip()
     elements = listing.findAll('span')
-    distance = elements[1].text.strip()
+    distance = elements[1].text.strip().replace('.', ',')
     living_area = None
     land_area = None
     if len(elements) > 2:
-        land_area = elements[2].text.strip()
+        land_area = elements[2].text.strip().replace('.', ',')
     if type == ReportType.HOUSE:
-        living_area = listing.find('div', {'data-test': 'area'}).text.strip()
+        living_area = listing.find('div', {'data-test': 'area'}).text.strip().replace('.', ',')
 
     return ImmoData(
         link=listing.find('a')['href'],

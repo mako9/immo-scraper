@@ -8,9 +8,9 @@ class ReportType(Enum):
 
     def get_limits(self):
         if self == ReportType.HOUSE:
-            return [2000, 4000]
+            return [2, 5]
         elif self == ReportType.LAND:
-            return [500, 1000]
+            return [2, 5]
 
 
 class ImmoData:
