@@ -58,7 +58,7 @@ def _get_cell_style(type, value):
     limits = type.get_limits()
     if value is None:
         return PatternFill(start_color=color, end_color=color, fill_type='solid')
-    if value > 0:
+    if value < limits[0]:
         color = red
     if value >= limits[0]:
         color = yellow
