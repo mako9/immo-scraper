@@ -32,7 +32,7 @@ class ImmoData:
         self.link = link
         self.type = type
         self.distance = get_int_value_from_string(distance)
-        if self.living_area != 0 and self.living_area is not None:
+        if self.living_area != 0 and self.living_area is not None and self.price is not None and self.price != 0:
             self.ratio = self.price / self.living_area
         else:
             self.ratio = -1

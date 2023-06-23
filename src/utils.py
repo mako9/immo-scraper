@@ -8,6 +8,6 @@ def get_int_value_from_string(input_string):
         if len(numbers) > 0:
             return float(numbers[0])
         else:
-            return -1
+            return None
     except TypeError as e:
         print(e)
