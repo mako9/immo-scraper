@@ -1,12 +1,11 @@
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from src.url import get_url_without_page, get_url_with_page
 from src.immo_data import ImmoData, ReportType
 from src.immo_platform import ImmoPlatform
@@ -52,10 +51,9 @@ def _get_results_of_type(type: ReportType):
 def _get_soup(url):
     global driver  # Declare the variables as nonlocal
     # Send the request and get the HTML response
-    options = Options()
-    #options.add_argument("--headless")  # Run Chrome in headless mode
-    service = Service(ChromeDriverManager().install())
     if driver is None:
+        service = Service()
+        options = webdriver.ChromeOptions()
         driver = webdriver.Chrome(service=service, options=options)
     driver.get(url)
     wait = WebDriverWait(driver, 60)  # Wait up to 60 seconds
