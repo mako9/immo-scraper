@@ -39,6 +39,7 @@ def _write_to_worksheet(worksheet, listings):
     worksheet.column_dimensions['B'].width = 80
     worksheet.column_dimensions['C'].width = 20
     worksheet.column_dimensions['I'].width = 80
+    all_ratings_sorted = sorted(list(map(lambda l: l.rating, listings)), reverse=True)
     for row, listing in enumerate(listings, start=2):
         worksheet.cell(row=row, column=1, value=listing.type.name)
         worksheet.cell(row=row, column=2, value=listing.title)
@@ -47,22 +48,23 @@ def _write_to_worksheet(worksheet, listings):
         worksheet.cell(row=row, column=5, value=listing.land_area)
         worksheet.cell(row=row, column=6, value=listing.ratio)
         worksheet.cell(row=row, column=7, value=listing.distance)
-        worksheet.cell(row=row, column=8, value=listing.rating).fill = _get_cell_style(listing.type, listing.rating)
+        worksheet.cell(row=row, column=8, value=listing.rating).fill = _get_cell_style(listing.type, listing.rating, all_ratings_sorted)
         worksheet.cell(row=row, column=9, value=listing.link)
 
-def _get_cell_style(type, value):
+def _get_cell_style(type, value, all_ratings):
     green = '008000'
     yellow = 'FFFF00'
     red = 'FF0000'
     color = 'FFFFF0'
-    limits = type.get_limits()
-    if value is None:
+    if value is None or value == 0:
         return PatternFill(start_color=color, end_color=color, fill_type='solid')
-    if value < limits[0]:
-        color = red
-    if value >= limits[0]:
-        color = yellow
-    if value > limits[1]:
+    limits = type.get_limits()
+    index = all_ratings.index(value)
+    if index < int(len(all_ratings) * limits[0]):
         color = green
+    elif index < int(len(all_ratings) * limits[1]):
+        color = yellow
+    else:
+        color = red
 
     return PatternFill(start_color=color, end_color=color, fill_type='solid')

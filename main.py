@@ -29,7 +29,7 @@ def _get_results():
         house_listings += houses
         land_listings += lands
     
-    return house_listings, land_listings
+    return list(filter(lambda l: l is not None, house_listings)), list(filter(lambda l: l is not None, land_listings))
 
 def _get_result_for_platform(platform: ImmoPlatform):
     env = os.getenv(platform.value)

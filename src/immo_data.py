@@ -8,9 +8,9 @@ class ReportType(Enum):
 
     def get_limits(self):
         if self == ReportType.HOUSE:
-            return [2, 5]
+            return [0.3, 0.7]
         elif self == ReportType.LAND:
-            return [2, 5]
+            return [0.3, 0.7]
 
 
 class ImmoData:
@@ -32,7 +32,9 @@ class ImmoData:
         self.link = link
         self.type = type
         self.distance = get_int_value_from_string(distance)
-        if self.living_area != 0 and self.living_area is not None and self.price is not None and self.price != 0:
-            self.ratio = self.price / self.living_area
-        else:
-            self.ratio = -1
+        self.ratio = 0
+        if self.price is not None and self.price > 0:
+            if type == ReportType.HOUSE and (self.living_area is not None and self.living_area > 0):
+                self.ratio = self.price / self.living_area
+            elif self.land_area is not None and self.land_area > 0:
+                self.ratio = self.price / self.land_area
