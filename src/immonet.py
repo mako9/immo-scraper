@@ -68,29 +68,36 @@ def _get_soup(url):
 
 
 def _get_immo_data(type, listing):
-    link = listing.find('a').attrs['href']
-    title = listing.find(
-        'h3', {'class': 'tile-details__title'}).text.strip()
-    price = listing.find(
-        'span', {'class': 'is-bold ng-star-inserted'}).text.strip()
-    elements = listing.findAll('span', {'class': 'text-overflow ng-star-inserted'})
-    distance = elements[0].text.strip()
-    land_area = None
-    if len(elements) > 1:
-        land_area = elements[1].text.strip()
-    living_area = None
-    if type == ReportType.HOUSE:
-        livingAreaElement = listing.find(
-        'span', {'class': 'ml-100 ng-star-inserted'})
-        if livingAreaElement is not None:
-            living_area = livingAreaElement.text.strip()
+    if listing is None:
+        return None
+    try:
+        link_element = listing.find('a')
+        if link_element is not None and 'href' in link_element.attrs:
+            link = link_element.attrs['href']
+        title = listing.find(
+            'h3', {'class': 'tile-details__title'}).text.strip()
+        price = listing.find(
+            'span', {'class': 'is-bold ng-star-inserted'}).text.strip()
+        elements = listing.findAll('span', {'class': 'text-overflow ng-star-inserted'})
+        distance = elements[0].text.strip()
+        land_area = None
+        if len(elements) > 1:
+            land_area = elements[1].text.strip()
+        living_area = None
+        if type == ReportType.HOUSE:
+            livingAreaElement = listing.find(
+            'span', {'class': 'ml-100 ng-star-inserted'})
+            if livingAreaElement is not None:
+                living_area = livingAreaElement.text.strip()
 
-    return ImmoData(
-        link=link,
-        title=title,
-        price=price,
-        living_area=living_area,
-        land_area=land_area,
-        type=type,
-        distance=distance
-    )
+        return ImmoData(
+            link=link,
+            title=title,
+            price=price,
+            living_area=living_area,
+            land_area=land_area,
+            type=type,
+            distance=distance
+        )
+    except:
+        return None
