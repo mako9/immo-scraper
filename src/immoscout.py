@@ -83,7 +83,7 @@ def _get_immo_data(type, listing):
 
     return ImmoData(
         link='https://www.immobilienscout24.de' +
-        listing.find('a', {'class': 'result-list-entry__brand-title-container'})['href'],
+        listing.find('a')['href'],
         title=listing.find('h2').text.strip(),
         price=price,
         living_area=living_area,
