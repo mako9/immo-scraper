@@ -5,6 +5,7 @@ from src.immo_platform import ImmoPlatform
 from src.immowelt import get_immowelt_results
 from src.immonet import get_immonet_results
 from src.immoscout import get_immoscout_results
+from src.kleinanzeigen import get_kleinanzeigen_results
 from src.rating import calculate_rating
 from src.xls import write_listings
 
@@ -42,6 +43,8 @@ def _get_result_for_platform(platform: ImmoPlatform):
         return get_immoscout_results()
     if platform == ImmoPlatform.IMMOWELT:
         return get_immowelt_results()
+    if platform == ImmoPlatform.KLEINANZEIGEN:
+        return get_kleinanzeigen_results()
     
 
 # Load the environment variables from the .env file
