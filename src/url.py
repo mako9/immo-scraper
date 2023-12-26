@@ -4,7 +4,7 @@ from src.immo_platform import ImmoPlatform
 from src.immo_data import ReportType
 
 def get_url_without_page(url: str, platform: ImmoPlatform, type: ReportType):
-    location = os.getenv('LOCATION')
+    location = platform.get_location()
     radius = os.getenv('RADIUS')
     price_upper_limit = os.getenv('PRICE_UPPER_LIMIT')
     url = url.replace('***', location)
