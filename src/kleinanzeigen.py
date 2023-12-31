@@ -49,7 +49,8 @@ def _get_results_of_type(type: ReportType):
         soup = _get_soup(url, 'site-base--content')
         new_listings = soup.find_all('li', {'class': 'ad-listitem'})
         listings += list(map(lambda x: (x, _get_listing_soup(x)), new_listings))
-        if len(new_listings) < 25:
+        print(len(new_listings))
+        if len(new_listings) < 30:
             break
         index += 1
 
