@@ -38,3 +38,13 @@ class ImmoData:
                 self.ratio = self.price / self.living_area
             elif self.land_area is not None and self.land_area > 0:
                 self.ratio = self.price / self.land_area
+    
+    def __eq__(self, other):
+        return self.title==other.title\
+           and self.price==other.price\
+           and self.land_area==other.land_area
+
+    def __hash__(self):
+        return hash(('title', self.title,
+            'price', self.price,
+            'land_area', self.land_area))
