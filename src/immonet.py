@@ -48,7 +48,7 @@ def _get_soup(url):
     # Send the request and get the HTML response
     service = Service()
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless")  # Run Chrome in headless mode
+    #options.add_argument("--headless")  # Run Chrome in headless mode
     driver = webdriver.Chrome(service=service, options=options)
     driver.get(url)
     wait = WebDriverWait(driver, 10)  # Wait up to 10 seconds
