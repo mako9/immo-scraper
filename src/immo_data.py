@@ -3,8 +3,8 @@ from src.utils import get_int_value_from_string
 
 
 class ReportType(Enum):
-    HOUSE = 'HOUSE'
-    LAND = 'LAND'
+    HOUSE = "HOUSE"
+    LAND = "LAND"
 
     def get_limits(self):
         if self == ReportType.HOUSE:
@@ -34,17 +34,21 @@ class ImmoData:
         self.distance = get_int_value_from_string(distance)
         self.ratio = 0
         if self.price is not None and self.price > 0:
-            if type == ReportType.HOUSE and (self.living_area is not None and self.living_area > 0):
+            if type == ReportType.HOUSE and (
+                self.living_area is not None and self.living_area > 0
+            ):
                 self.ratio = self.price / self.living_area
             elif self.land_area is not None and self.land_area > 0:
                 self.ratio = self.price / self.land_area
-    
+
     def __eq__(self, other):
-        return self.title==other.title\
-           and self.price==other.price\
-           and self.land_area==other.land_area
+        return (
+            self.title == other.title
+            and self.price == other.price
+            and self.land_area == other.land_area
+        )
 
     def __hash__(self):
-        return hash(('title', self.title,
-            'price', self.price,
-            'land_area', self.land_area))
+        return hash(
+            ("title", self.title, "price", self.price, "land_area", self.land_area)
+        )
