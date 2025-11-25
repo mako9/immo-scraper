@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "immo_scraper",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",

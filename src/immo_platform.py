@@ -3,34 +3,40 @@ import os
 
 from src.immo_data import ReportType
 
+
 class ImmoPlatform(Enum):
-    IMMONET = 'IMMONET'
-    IMMOSCOUT = 'IMMOSCOUT'
-    IMMOWELT = 'IMMOWELT'
-    KLEINANZEIGEN = 'KLEINANZEIGEN'
+    IMMONET = "IMMONET"
+    IMMOSCOUT = "IMMOSCOUT"
+    IMMOWELT = "IMMOWELT"
+    KLEINANZEIGEN = "KLEINANZEIGEN"
+    VR_IMMOBILIEN = "VR_IMMOBILIEN"
 
     def get_url_replacement_string(self, type: ReportType):
         if type == ReportType.HOUSE:
             if self == ImmoPlatform.IMMONET:
-                return '2'
+                return "2"
             elif self == ImmoPlatform.IMMOSCOUT:
-                return 'haus-kaufen'
+                return "haus-kaufen"
             elif self == ImmoPlatform.IMMOWELT:
-                return 'haeuser'
+                return "haeuser"
             elif self == ImmoPlatform.KLEINANZEIGEN:
-                return 's-haus-kaufen'
+                return "s-haus-kaufen"
+            elif self == ImmoPlatform.VR_IMMOBILIEN:
+                return "house"
         else:
             if self == ImmoPlatform.IMMONET:
-                return '3'
+                return "3"
             elif self == ImmoPlatform.IMMOSCOUT:
-                return 'grundstueck-kaufen'
+                return "grundstueck-kaufen"
             elif self == ImmoPlatform.IMMOWELT:
-                return 'grundstuecke'
+                return "grundstuecke"
             elif self == ImmoPlatform.KLEINANZEIGEN:
-                return 's-grundstuecke-garten'
-    
+                return "s-grundstuecke-garten"
+            elif self == ImmoPlatform.VR_IMMOBILIEN:
+                return "land"
+
     def get_location(self):
         if self == ImmoPlatform.KLEINANZEIGEN:
-            return os.getenv('ZIP_CODE')
+            return os.getenv("ZIP_CODE")
         else:
-            return os.getenv('LOCATION')
+            return os.getenv("LOCATION")
