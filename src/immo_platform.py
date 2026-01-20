@@ -10,6 +10,7 @@ class ImmoPlatform(Enum):
     IMMOWELT = "IMMOWELT"
     KLEINANZEIGEN = "KLEINANZEIGEN"
     VR_IMMOBILIEN = "VR_IMMOBILIEN"
+    SPARKASSE = "SPARKASSE"
 
     def get_url_replacement_string(self, type: ReportType):
         if type == ReportType.HOUSE:
@@ -23,6 +24,8 @@ class ImmoPlatform(Enum):
                 return "s-haus-kaufen"
             elif self == ImmoPlatform.VR_IMMOBILIEN:
                 return "house"
+            elif self == ImmoPlatform.SPARKASSE:
+                return "haus-kaufen"
         else:
             if self == ImmoPlatform.IMMONET:
                 return "3"
@@ -34,6 +37,8 @@ class ImmoPlatform(Enum):
                 return "s-grundstuecke-garten"
             elif self == ImmoPlatform.VR_IMMOBILIEN:
                 return "land"
+            elif self == ImmoPlatform.SPARKASSE:
+                return "grundstueck-kaufen"
 
     def get_location(self):
         if self == ImmoPlatform.KLEINANZEIGEN:

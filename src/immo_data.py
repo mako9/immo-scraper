@@ -42,6 +42,10 @@ class ImmoData:
                 self.ratio = self.price / self.land_area
 
     def __eq__(self, other):
+        # Use link as the primary unique identifier since it contains the estate ID
+        if self.link and other.link:
+            return self.link == other.link
+        # Fallback to title, price, land_area comparison if link is missing
         return (
             self.title == other.title
             and self.price == other.price
@@ -49,6 +53,10 @@ class ImmoData:
         )
 
     def __hash__(self):
+        # Use link as the primary hash key since it contains the unique estate ID
+        if self.link:
+            return hash(self.link)
+        # Fallback hash if link is missing
         return hash(
             ("title", self.title, "price", self.price, "land_area", self.land_area)
         )
