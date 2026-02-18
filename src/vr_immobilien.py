@@ -25,7 +25,7 @@ def get_vr_immobilien_results():
     return house_listings, land_listings
 
 
-def _get_results_of_type(type: ReportType):
+def _get_results_of_type(type: ReportType) -> list[ImmoData]:
     """Fetch all listings of a specific type (HOUSE or LAND)"""
     listings = []
     url = _get_url_for_type(type)

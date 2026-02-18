@@ -32,7 +32,7 @@ def _get_url_without_page(type: ReportType):
     return get_url_without_page(URL, ImmoPlatform.IMMOSCOUT, type)
 
 
-def _get_results_of_type(type: ReportType):
+def _get_results_of_type(type: ReportType) -> list[ImmoData]:
     # Find all the relevant listings
     listings = []
     url_without_page = _get_url_without_page(type)
