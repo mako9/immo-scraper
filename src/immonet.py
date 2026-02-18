@@ -13,7 +13,8 @@ from src.immo_platform import ImmoPlatform
 from src.immo_data import ImmoData, ReportType
 from src.utils import get_int_value_from_string
 
-URL = 'https://www.immonet.de/immobiliensuche/beta?objecttype=1&locationIds=134762&radius=§§§&parentcat=+++&marketingtype=1&page=$$$&toprice=###'
+URL = "https://www.immonet.de/immobiliensuche/beta?objecttype=1&locationIds=134762&radius=§§§&parentcat=+++&marketingtype=1&page=$$$&toprice=###"
+
 
 def get_immonet_results():
     return _get_results_of_type(ReportType.HOUSE), _get_results_of_type(ReportType.LAND)
@@ -23,19 +24,21 @@ def _get_url_without_page(type: ReportType):
     return get_url_without_page(URL, ImmoPlatform.IMMONET, type)
 
 
-def _get_results_of_type(type: ReportType):
+def _get_results_of_type(type: ReportType) -> list[ImmoData]:
     # Find all the relevant listings
     listings = []
     url_without_page = _get_url_without_page(type)
     soup = _get_soup(url_without_page)
-    total_count = get_int_value_from_string(soup.find('h1', {'class': 'is-bold'}).text.strip())
+    total_count = get_int_value_from_string(
+        soup.find("h1", {"class": "is-bold"}).text.strip()
+    )
 
     index = 1
     while True:
         url = get_url_with_page(url_without_page, index)
         print(url)
         soup = _get_soup(url)
-        new_listings = soup.find_all('sd-card')
+        new_listings = soup.find_all("sd-card")
         listings += new_listings
         if len(listings) >= total_count or len(new_listings) < 20:
             break
@@ -52,7 +55,7 @@ def _get_soup(url):
     driver.get(url)
     wait = WebDriverWait(driver, 10)  # Wait up to 10 seconds
 
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, 'sd-card')))
+    wait.until(EC.presence_of_element_located((By.TAG_NAME, "sd-card")))
     for _ in range(10):
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(1)
@@ -60,7 +63,7 @@ def _get_soup(url):
     html = driver.page_source
 
     # Parse the HTML response with BeautifulSoup
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, "html.parser")
     driver.quit()
 
     return soup
@@ -70,14 +73,12 @@ def _get_immo_data(type, listing):
     if listing is None:
         return None
     try:
-        link_element = listing.find('a')
-        if link_element is not None and 'href' in link_element.attrs:
-            link = link_element.attrs['href']
-        title = listing.find(
-            'h3', {'class': 'tile-details__title'}).text.strip()
-        price = listing.find(
-            'span', {'class': 'is-bold ng-star-inserted'}).text.strip()
-        elements = listing.findAll('span', {'class': 'text-overflow ng-star-inserted'})
+        link_element = listing.find("a")
+        if link_element is not None and "href" in link_element.attrs:
+            link = link_element.attrs["href"]
+        title = listing.find("h3", {"class": "tile-details__title"}).text.strip()
+        price = listing.find("span", {"class": "is-bold ng-star-inserted"}).text.strip()
+        elements = listing.findAll("span", {"class": "text-overflow ng-star-inserted"})
         distance = elements[0].text.strip()
         land_area = None
         if len(elements) > 1:
@@ -85,7 +86,8 @@ def _get_immo_data(type, listing):
         living_area = None
         if type == ReportType.HOUSE:
             livingAreaElement = listing.find(
-            'span', {'class': 'ml-100 ng-star-inserted'})
+                "span", {"class": "ml-100 ng-star-inserted"}
+            )
             if livingAreaElement is not None:
                 living_area = livingAreaElement.text.strip()
 
@@ -96,7 +98,7 @@ def _get_immo_data(type, listing):
             living_area=living_area,
             land_area=land_area,
             type=type,
-            distance=distance
+            distance=distance,
         )
     except:
         return None

@@ -1,6 +1,8 @@
 import os
+import re
 from dotenv import load_dotenv
 
+from src.immo_data import ImmoData
 from src.immo_platform import ImmoPlatform
 from src.immowelt import get_immowelt_results
 from src.immonet import get_immonet_results
@@ -10,6 +12,14 @@ from src.vr_immobilien import get_vr_immobilien_results
 from src.sparkasse import get_sparkasse_results
 from src.rating import calculate_rating
 from src.xls import write_listings
+
+
+BLACKLISTED_KEYWORDS = ["Bien-Zenker", "Unser WOHLFÜHLSERVICE", "MASSA"]
+
+_BLACKLIST_PATTERN = re.compile(
+    "|".join(map(re.escape, BLACKLISTED_KEYWORDS)),
+    re.IGNORECASE,
+)
 
 
 def _load_and_store_data():
@@ -34,7 +44,7 @@ def _load_and_store_data():
     write_listings(house_listings, land_listings)
 
 
-def _get_results():
+def _get_results() -> tuple[set[ImmoData], set[ImmoData]]:
     house_listings = []
     land_listings = []
     for platform in ImmoPlatform:
@@ -42,12 +52,33 @@ def _get_results():
         house_listings += houses
         land_listings += lands
 
-    return set(filter(lambda l: l is not None, house_listings)), set(
-        filter(lambda l: l is not None, land_listings)
+    return _cleanup_results(house_listings), _cleanup_results(land_listings)
+
+
+def _cleanup_results(listings: list[ImmoData]) -> set[ImmoData]:
+    return _deduplicate_results(
+        {
+            listing
+            for listing in listings
+            if listing
+            and listing.title
+            and not _BLACKLIST_PATTERN.search(listing.title)
+        }
     )
 
 
-def _get_result_for_platform(platform: ImmoPlatform):
+def _deduplicate_results(data: set[ImmoData]) -> set[ImmoData]:
+    seen = {}
+    for item in data:
+        key = (item.title, item.price, item.land_area)
+        if key not in seen:
+            seen[key] = item
+    return set(seen.values())
+
+
+def _get_result_for_platform(
+    platform: ImmoPlatform,
+) -> tuple[list[ImmoData], list[ImmoData]]:
     env = os.getenv(platform.value)
     if env != "active":
         print(f"Skipping {platform.value} as it is set to {env}")
