@@ -51,7 +51,7 @@ def _get_soup(url: str, params):
 
 def _get_immo_data(type: ReportType, listing):
     price = listing.find('div', {'data-test': 'price'}).text.strip()
-    elements = listing.findAll('span')
+    elements = listing.find_all('span')
     distance = elements[1].text.strip().replace('.', ',')
     living_area = None
     land_area = None
