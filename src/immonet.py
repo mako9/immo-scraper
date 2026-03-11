@@ -78,7 +78,7 @@ def _get_immo_data(type, listing):
             link = link_element.attrs["href"]
         title = listing.find("h3", {"class": "tile-details__title"}).text.strip()
         price = listing.find("span", {"class": "is-bold ng-star-inserted"}).text.strip()
-        elements = listing.findAll("span", {"class": "text-overflow ng-star-inserted"})
+        elements = listing.find_all("span", {"class": "text-overflow ng-star-inserted"})
         distance = elements[0].text.strip()
         land_area = None
         if len(elements) > 1:

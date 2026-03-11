@@ -93,7 +93,7 @@ def _get_soup(url, type, name):
 
 
 def _get_immo_data(type, listing):
-    infos = listing[0].findAll("dd", {"class": "font-bold"})
+    infos = listing[0].find_all("dd", {"class": "font-bold"})
     if not infos:
         return None
     price = infos[0].text.strip()
