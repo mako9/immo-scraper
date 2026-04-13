@@ -7,8 +7,8 @@
       "request": "launch",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
-      "module": "poetry",
-      "args": ["run", "python", "main.py"]
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "program": "${workspaceFolder}/main.py"
     }
   ]
 }
