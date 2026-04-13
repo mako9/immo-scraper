@@ -1,48 +1,12 @@
 from bs4 import BeautifulSoup
 
 from src.immo_data import ReportType
-import src.immonet as immonet
 import src.immoscout as immoscout
 import src.immowelt as immowelt
 import src.vr_immobilien as vr
 import src.sparkasse as sparkasse
 from src import kleinanzeigen
 from bs4 import BeautifulSoup
-
-
-def test_immonet_get_url_without_page_respects_env(monkeypatch):
-    monkeypatch.setenv("LOCATION", "Berlin")
-    monkeypatch.setenv("RADIUS", "30")
-    monkeypatch.setenv("PRICE_UPPER_LIMIT", "300000")
-
-    url = immonet._get_url_without_page(ReportType.HOUSE)
-    assert "locationIds" in url
-    assert "radius=30" in url
-    assert "toprice=300000" in url
-    assert "parentcat=2" in url
-
-
-def test_immonet_get_immo_data_parses_expected_fields():
-    html = """
-    <sd-card>
-      <a href="/immo/1"></a>
-      <h3 class="tile-details__title">House Title</h3>
-      <span class="is-bold ng-star-inserted">200.000 €</span>
-      <span class="text-overflow ng-star-inserted">5 km</span>
-      <span class="text-overflow ng-star-inserted">500 m²</span>
-      <span class="ml-100 ng-star-inserted">120 m²</span>
-    </sd-card>
-    """
-
-    listing = BeautifulSoup(html, "html.parser").find("sd-card")
-    data = immonet._get_immo_data(ReportType.HOUSE, listing)
-
-    assert data.title == "House Title"
-    assert data.price == 200000.0
-    assert data.distance == 5.0
-    assert data.land_area == 500.0
-    assert data.living_area == 120.0
-    assert data.link == "/immo/1"
 
 
 def test_immoscout_get_immo_data_parses_expected_fields():
@@ -67,29 +31,39 @@ def test_immoscout_get_immo_data_parses_expected_fields():
     assert data.link.endswith("/listing/1")
 
 
-def test_immowelt_get_immo_data_parses_expected_fields():
-    html = """
-    <div>
-      <a href="/immowelt/1"></a>
-      <h2>ImmoWelt Listing</h2>
-      <div data-test="price">150.000 €</div>
-      <span>irrelevant</span>
-      <span>2,5 km</span>
-      <span>700 m²</span>
-      <div data-test="area">130 m²</div>
-    </div>
-    """
+def test_immowelt_slugify():
+    assert immowelt._slugify("Künzell") == "kuenzell"
+    assert immowelt._slugify("München") == "muenchen"
+    assert immowelt._slugify("Frankfurt am Main") == "frankfurt-am-main"
+    assert immowelt._slugify("Köln") == "koeln"
 
-    listing = BeautifulSoup(html, "html.parser").div
+
+def test_immowelt_resolve_location_passthrough():
+    assert immowelt._resolve_location("POCODE2604") == "POCODE2604"
+    assert immowelt._resolve_location("AD08DE2812") == "AD08DE2812"
+    assert immowelt._resolve_location("pocode2604") == "pocode2604"
+
+
+def test_immowelt_get_immo_data_parses_expected_fields():
+    listing = {
+        "hardFacts": {
+            "title": "ImmoWelt Listing",
+            "price": {"ariaLabel": "150000 €"},
+            "facts": [
+                {"type": "livingSpace", "splitValue": "130"},
+                {"type": "plotSpace", "splitValue": "700"},
+            ],
+        },
+        "url": "https://www.immowelt.de/expose/abc123",
+    }
     data = immowelt._get_immo_data(ReportType.HOUSE, listing)
 
     assert data.title == "ImmoWelt Listing"
     assert data.price == 150000.0
-    # ImmoData only extracts the integer portion of distance
-    assert data.distance == 2.0
     assert data.land_area == 700.0
     assert data.living_area == 130.0
-    assert data.link == "/immowelt/1"
+    assert data.link == "https://www.immowelt.de/expose/abc123"
+    assert data.distance is None
 
 
 def test_vr_immobilien_url_helpers_and_parsing():

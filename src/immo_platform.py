@@ -5,7 +5,6 @@ from src.immo_data import ReportType
 
 
 class ImmoPlatform(Enum):
-    IMMONET = "IMMONET"
     IMMOSCOUT = "IMMOSCOUT"
     IMMOWELT = "IMMOWELT"
     KLEINANZEIGEN = "KLEINANZEIGEN"
@@ -14,9 +13,7 @@ class ImmoPlatform(Enum):
 
     def get_url_replacement_string(self, type: ReportType):
         if type == ReportType.HOUSE:
-            if self == ImmoPlatform.IMMONET:
-                return "2"
-            elif self == ImmoPlatform.IMMOSCOUT:
+            if self == ImmoPlatform.IMMOSCOUT:
                 return "haus-kaufen"
             elif self == ImmoPlatform.IMMOWELT:
                 return "haeuser"
@@ -27,9 +24,7 @@ class ImmoPlatform(Enum):
             elif self == ImmoPlatform.SPARKASSE:
                 return "haus-kaufen"
         else:
-            if self == ImmoPlatform.IMMONET:
-                return "3"
-            elif self == ImmoPlatform.IMMOSCOUT:
+            if self == ImmoPlatform.IMMOSCOUT:
                 return "grundstueck-kaufen"
             elif self == ImmoPlatform.IMMOWELT:
                 return "grundstuecke"

@@ -40,5 +40,5 @@ def test_get_url_without_page_uses_location_for_platforms(monkeypatch):
     monkeypatch.setenv("PRICE_UPPER_LIMIT", "100000")
 
     template = "https://example.com/+++/***/preis::###$$$/anzeige/§§§"
-    url = get_url_without_page(template, ImmoPlatform.IMMONET, ReportType.HOUSE)
+    url = get_url_without_page(template, ImmoPlatform.IMMOSCOUT, ReportType.HOUSE)
     assert "Hamburg" in url

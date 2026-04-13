@@ -1,11 +1,13 @@
 import os
 import re
+import truststore
 from dotenv import load_dotenv
+
+truststore.inject_into_ssl()
 
 from src.immo_data import ImmoData
 from src.immo_platform import ImmoPlatform
 from src.immowelt import get_immowelt_results
-from src.immonet import get_immonet_results
 from src.immoscout import get_immoscout_results
 from src.kleinanzeigen import get_kleinanzeigen_results
 from src.vr_immobilien import get_vr_immobilien_results
@@ -79,13 +81,11 @@ def _deduplicate_results(data: set[ImmoData]) -> set[ImmoData]:
 def _get_result_for_platform(
     platform: ImmoPlatform,
 ) -> tuple[list[ImmoData], list[ImmoData]]:
-    env = os.getenv(platform.value)
-    if env != "active":
-        print(f"Skipping {platform.value} as it is set to {env}")
+    env = os.getenv(f"{platform.value}_ENABLED")
+    if env != "true":
+        print(f"Skipping {platform.value} as it is not enabled")
         return [], []
 
-    if platform == ImmoPlatform.IMMONET:
-        return get_immonet_results()
     if platform == ImmoPlatform.IMMOSCOUT:
         return get_immoscout_results()
     if platform == ImmoPlatform.IMMOWELT:
