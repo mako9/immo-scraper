@@ -164,7 +164,7 @@ def _resolve_location(location: str) -> tuple[str, tuple[float, float] | None]:
     needs_coords = bool(os.getenv("RADIUS"))
 
     if any(location.upper().startswith(p) for p in _PLACE_ID_PREFIXES):
-        place_id = location.upper()
+        place_id = location
         if needs_coords:
             city = _city_name_for_place_id(place_id)
             coords = _geocode(city) if city else None

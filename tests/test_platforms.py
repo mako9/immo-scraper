@@ -39,9 +39,9 @@ def test_immowelt_slugify():
 
 
 def test_immowelt_resolve_location_passthrough():
-    assert immowelt._resolve_location("POCODE2604") == "POCODE2604"
-    assert immowelt._resolve_location("AD08DE2812") == "AD08DE2812"
-    assert immowelt._resolve_location("pocode2604") == "pocode2604"
+    assert immowelt._resolve_location("POCODE2604") == ("POCODE2604", None)
+    assert immowelt._resolve_location("AD08DE2812") == ("AD08DE2812", None)
+    assert immowelt._resolve_location("pocode2604") == ("pocode2604", None)
 
 
 def test_immowelt_get_immo_data_parses_expected_fields():
