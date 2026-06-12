@@ -29,6 +29,26 @@ def test_immoscout_get_immo_data_parses_expected_fields():
     assert data.living_area == 125.0
     assert data.land_area == 600.0
     assert data.link.endswith("/listing/1")
+    assert data.location is None
+
+
+def test_immoscout_get_immo_data_extracts_location():
+    listing_html = """
+    <div>
+      <a href="/listing/1"></a>
+      <h2 data-testid="headline">Scout Title</h2>
+      <dd class="font-bold">100.000 €</dd>
+      <dd class="font-bold">125 m²</dd>
+      <dd class="font-bold">unneeded</dd>
+      <dd class="font-bold">600 m²</dd>
+      <span data-testid="result-list-entry-address">36043 Fulda</span>
+    </div>
+    """
+
+    listing_tag = BeautifulSoup(listing_html, "html.parser").div
+    data = immoscout._get_immo_data(ReportType.HOUSE, (listing_tag, None))
+
+    assert data.location == "36043 Fulda"
 
 
 def test_immowelt_slugify():
@@ -64,6 +84,22 @@ def test_immowelt_get_immo_data_parses_expected_fields():
     assert data.living_area == 130.0
     assert data.link == "https://www.immowelt.de/expose/abc123"
     assert data.distance is None
+    assert data.location is None
+
+
+def test_immowelt_get_immo_data_extracts_location_from_address():
+    listing = {
+        "hardFacts": {
+            "title": "ImmoWelt Listing",
+            "price": {"ariaLabel": "150000 €"},
+            "facts": [],
+        },
+        "url": "https://www.immowelt.de/expose/abc123",
+        "location": {"address": {"zipCode": "36043", "city": "Fulda"}},
+    }
+    data = immowelt._get_immo_data(ReportType.HOUSE, listing)
+
+    assert data.location == "36043 Fulda"
 
 
 def test_vr_immobilien_url_helpers_and_parsing():
@@ -94,6 +130,21 @@ def test_vr_immobilien_url_helpers_and_parsing():
     assert data.living_area == 140.0
     assert data.land_area == 530.0
     assert data.link == "/vr/1"
+    assert data.location is None
+
+
+def test_vr_immobilien_get_immo_data_passes_city_as_location():
+    html = """
+    <div class="mw-object-col">
+      <div class="mw-object-col-title">VR Title</div>
+      <a class="mw-paginated-prop-anker-click" href="/vr/1"></a>
+      <div class="mw-object-col-details-price-number">180.000 €</div>
+    </div>
+    """
+    listing = BeautifulSoup(html, "html.parser").find("div", {"class": "mw-object-col"})
+    data = vr._get_immo_data(ReportType.HOUSE, listing, city="Künzell")
+
+    assert data.location == "Künzell"
 
 
 def test_sparkasse_parse_number_and_api_mapping():
@@ -116,6 +167,19 @@ def test_sparkasse_parse_number_and_api_mapping():
     assert data.living_area == 110.0
     assert data.land_area == 620.0
     assert "eid=XYZ" in data.link
+    assert data.location is None
+
+
+def test_sparkasse_extracts_location_from_geo_label():
+    fake_estate = {
+        "id": "ABC",
+        "headline": "Sparkasse Home",
+        "main_facts": [],
+        "geo_label": "Fulda",
+        "location": {"lat": 50.5433, "lon": 9.68345},
+    }
+    data = sparkasse._get_immo_data_from_api(ReportType.HOUSE, fake_estate)
+    assert data.location == "Fulda"
 
 
 # ----- Kleinanzeigen helpers/tests -----
@@ -180,6 +244,23 @@ def test_kleinanzeigen_get_immo_data_parses_expected_fields():
     assert data.land_area == 750.0
     assert data.distance == 7.0
     assert data.link.endswith("/detail/1")
+    assert data.location == "Dorf"
+
+
+def test_kleinanzeigen_get_immo_data_extracts_zip_and_city_as_location():
+    listing_html = """
+    <li>
+      <article data-href="/detail/1">
+        <h2 class="text-module-begin">Title Example</h2>
+        <div class="aditem-main--top--left">36043 Fulda (5 km)</div>
+      </article>
+    </li>
+    """
+    listing_tag = BeautifulSoup(listing_html, "html.parser").li
+    detail_soup = BeautifulSoup(_make_detail_page_html(), "html.parser")
+    data = kleinanzeigen._get_immo_data(ReportType.HOUSE, (listing_tag, detail_soup))
+
+    assert data.location == "36043 Fulda"
 
 
 def test_kleinanzeigen_get_results_of_type_pagination(monkeypatch):
