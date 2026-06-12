@@ -55,6 +55,33 @@ def test_immo_data_equality_and_hash_use_link():
     assert hash(a) == hash(b)
 
 
+def test_immo_data_location_defaults_to_none():
+    data = ImmoData(
+        title="Test",
+        price="200000",
+        living_area="100",
+        land_area="500",
+        link="http://example.com/1",
+        type=ReportType.HOUSE,
+        distance="10",
+    )
+    assert data.location is None
+
+
+def test_immo_data_stores_location():
+    data = ImmoData(
+        title="Test",
+        price="200000",
+        living_area="100",
+        land_area="500",
+        link="http://example.com/1",
+        type=ReportType.HOUSE,
+        distance="10",
+        location="36043 Fulda",
+    )
+    assert data.location == "36043 Fulda"
+
+
 def test_immo_data_equality_fallback_without_link():
     a = ImmoData(
         title="A",

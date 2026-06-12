@@ -98,6 +98,7 @@ def _get_immo_data(type: ReportType, listing) -> ImmoData:
             listing[0].find("div", {"class": "aditem-main--top--left"}).text.strip()
         )
         distance = re.findall(pattern, location_text)[0]
+        location = re.sub(r"\s*\([^)]+\)\s*$", "", location_text).strip() or None
         price = listing[1].find("h2", {"class": "boxedarticle--price"}).text.strip()
         living_area = None
         land_area = (
@@ -124,6 +125,7 @@ def _get_immo_data(type: ReportType, listing) -> ImmoData:
             land_area=land_area,
             type=type,
             distance=distance,
+            location=location,
         )
     except:
         return None

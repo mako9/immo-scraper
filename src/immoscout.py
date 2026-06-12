@@ -112,7 +112,15 @@ def _get_immo_data(type, listing):
         land_area=land_area,
         type=type,
         distance=None,
+        location=_get_location(listing[0]),
     )
+
+
+def _get_location(listing) -> str | None:
+    elem = listing.find(attrs={"data-testid": "result-list-entry-address"})
+    if elem:
+        return elem.text.strip() or None
+    return None
 
 
 def _get_href(listing) -> Optional[str]:

@@ -232,6 +232,8 @@ def _get_immo_data_from_api(type: ReportType, listing) -> Optional[ImmoData]:
                 if m:
                     land_area = _parse_number(m.group(1))
 
+        location = est.get("geo_label") or None
+
         return ImmoData(
             title=title,
             price=price,
@@ -239,7 +241,8 @@ def _get_immo_data_from_api(type: ReportType, listing) -> Optional[ImmoData]:
             land_area=land_area,
             link=link,
             type=type,
-            distance=None,  # TODO: calculate from lat/lng
+            distance=None,
+            location=location,
         )
     except Exception:
         return None

@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 from src.utils import get_int_value_from_string
 
 
@@ -22,9 +23,10 @@ class ImmoData:
     type: ReportType
     ratio: float
     distance: int
+    location: Optional[str]
     rating: float = 0.0
 
-    def __init__(self, title, price, living_area, land_area, link, type, distance):
+    def __init__(self, title, price, living_area, land_area, link, type, distance, location=None):
         self.title = title
         self.price = get_int_value_from_string(price)
         self.living_area = get_int_value_from_string(living_area)
@@ -32,6 +34,7 @@ class ImmoData:
         self.link = link
         self.type = type
         self.distance = get_int_value_from_string(distance)
+        self.location = location
         self.ratio = 0
         if self.price is not None and self.price > 0:
             if type == ReportType.HOUSE and (

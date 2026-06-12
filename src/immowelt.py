@@ -250,6 +250,11 @@ def _get_immo_data(type: ReportType, listing: dict) -> ImmoData | None:
             elif fact["type"] == "plotSpace":
                 land_area = fact["splitValue"]
 
+        addr = listing.get("location", {}).get("address", {})
+        zip_code = addr.get("zipCode", "")
+        city = addr.get("city", "")
+        location = f"{zip_code} {city}".strip() or None
+
         return ImmoData(
             link=url,
             title=title,
@@ -258,6 +263,7 @@ def _get_immo_data(type: ReportType, listing: dict) -> ImmoData | None:
             land_area=land_area,
             type=type,
             distance=None,
+            location=location,
         )
     except Exception:
         return None

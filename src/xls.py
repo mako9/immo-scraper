@@ -13,13 +13,14 @@ def create_workbook():
     for worksheet in workbook.worksheets:
         worksheet['A1'] = 'Type'
         worksheet['B1'] = 'Title'
-        worksheet['C1'] = 'Price [€]'
-        worksheet['D1'] = 'Living Area [m2]'
-        worksheet['E1'] = 'Land Area [m2]'
-        worksheet['F1'] = 'Ratio [€ / m2]'
-        worksheet['G1'] = 'Distance [km]'
-        worksheet['H1'] = 'Rating'
-        worksheet['I1'] = 'Link'
+        worksheet['C1'] = 'Location'
+        worksheet['D1'] = 'Price [€]'
+        worksheet['E1'] = 'Living Area [m2]'
+        worksheet['F1'] = 'Land Area [m2]'
+        worksheet['G1'] = 'Ratio [€ / m2]'
+        worksheet['H1'] = 'Distance [km]'
+        worksheet['I1'] = 'Rating'
+        worksheet['J1'] = 'Link'
 
         for cell in worksheet[1]:
             cell.fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type="solid")
@@ -37,19 +38,21 @@ def write_listings(house_listings: list[ImmoData], land_listings: list[ImmoData]
 
 def _write_to_worksheet(worksheet, listings):
     worksheet.column_dimensions['B'].width = 80
-    worksheet.column_dimensions['C'].width = 20
-    worksheet.column_dimensions['I'].width = 80
+    worksheet.column_dimensions['C'].width = 25
+    worksheet.column_dimensions['D'].width = 20
+    worksheet.column_dimensions['J'].width = 80
     all_ratings_sorted = sorted(list(map(lambda l: l.rating, listings)), reverse=True)
     for row, listing in enumerate(listings, start=2):
         worksheet.cell(row=row, column=1, value=listing.type.name)
         worksheet.cell(row=row, column=2, value=listing.title)
-        worksheet.cell(row=row, column=3, value=listing.price).number_format=numbers.FORMAT_CURRENCY_EUR_SIMPLE
-        worksheet.cell(row=row, column=4, value=listing.living_area)
-        worksheet.cell(row=row, column=5, value=listing.land_area)
-        worksheet.cell(row=row, column=6, value=listing.ratio)
-        worksheet.cell(row=row, column=7, value=listing.distance)
-        worksheet.cell(row=row, column=8, value=listing.rating).fill = _get_cell_style(listing.type, listing.rating, all_ratings_sorted)
-        worksheet.cell(row=row, column=9, value=listing.link)
+        worksheet.cell(row=row, column=3, value=listing.location)
+        worksheet.cell(row=row, column=4, value=listing.price).number_format=numbers.FORMAT_CURRENCY_EUR_SIMPLE
+        worksheet.cell(row=row, column=5, value=listing.living_area)
+        worksheet.cell(row=row, column=6, value=listing.land_area)
+        worksheet.cell(row=row, column=7, value=listing.ratio)
+        worksheet.cell(row=row, column=8, value=listing.distance)
+        worksheet.cell(row=row, column=9, value=listing.rating).fill = _get_cell_style(listing.type, listing.rating, all_ratings_sorted)
+        worksheet.cell(row=row, column=10, value=listing.link)
 
 def _get_cell_style(type, value, all_ratings):
     green = '008000'
