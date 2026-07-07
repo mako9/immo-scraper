@@ -186,18 +186,19 @@ def test_sparkasse_extracts_location_from_geo_label():
 
 
 def _make_list_page_html(has_next: bool):
-    pagination_html = '<a class="pagination-next" href="#">next</a>' if has_next else ""
+    pagination_html = '<a aria-label="Nächste" href="#">next</a>' if has_next else ""
     return f"""
     <html>
       <body>
-        <ul>
-          <li class="ad-listitem fully-clickable-card">
-            <article data-href="/detail/1">
-              <h2 class="text-module-begin">My Title</h2>
-              <div class="aditem-main--top--left">Ort (3km)</div>
-            </article>
-          </li>
-        </ul>
+        <article data-adid="123" data-href="/detail/1">
+          <h3>My Title</h3>
+          <div>
+            <svg data-title="locationOutline"></svg>
+            <span>Ort</span><span>(3 km)</span>
+          </div>
+          <p class="my-xsmall text-title3 font-strong text-secondary">123.456 €</p>
+          <p class="font-strong text-onSurfaceSubdued">120 m² · 3 Zi.</p>
+        </article>
         {pagination_html}
       </body>
     </html>
