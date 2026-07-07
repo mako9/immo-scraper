@@ -5,7 +5,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from src.immo_data import ImmoData, ReportType
 
 BASE_URL = "https://v-r-immobilien.de"
@@ -74,17 +74,16 @@ def _get_soup(url) -> Optional[BeautifulSoup]:
         options = webdriver.ChromeOptions()
         driver = webdriver.Chrome(service=service, options=options)
 
-    driver.get(url)
-    wait = WebDriverWait(driver, 10)  # Wait up to 10 seconds
-
     # Wait for property listings to load
     try:
+        driver.get(url)
+        wait = WebDriverWait(driver, 10)  # Wait up to 10 seconds
         wait.until(
             EC.presence_of_element_located(
                 (By.CLASS_NAME, "mw-object-list-view-wrapper")
             )
         )
-    except TimeoutException:
+    except (TimeoutException, WebDriverException):
         print(f"Timeout while loading page: {url}")
         return None
 
