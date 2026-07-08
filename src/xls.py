@@ -41,7 +41,7 @@ def _write_to_worksheet(worksheet, listings):
     worksheet.column_dimensions['C'].width = 25
     worksheet.column_dimensions['D'].width = 20
     worksheet.column_dimensions['J'].width = 80
-    all_ratings_sorted = sorted(list(map(lambda l: l.rating, listings)), reverse=True)
+    all_ratings_sorted = sorted([l.rating for l in listings if l.rating is not None], reverse=True)
     for row, listing in enumerate(listings, start=2):
         worksheet.cell(row=row, column=1, value=listing.type.name)
         worksheet.cell(row=row, column=2, value=listing.title)

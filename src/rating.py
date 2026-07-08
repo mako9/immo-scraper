@@ -7,25 +7,29 @@ def calculate_rating(immo_data: list[ImmoData]):
     if immo_data is None or len(immo_data) == 0:
         return
 
+    rateable = [i for i in immo_data if _has_required_data(i)]
+    if not rateable:
+        return
+
     price_weight = float(os.getenv("PRICE_WEIGHT"))
     living_area_weight = float(os.getenv("LIVING_AREA_WEIGHT"))
     land_area_weight = float(os.getenv("LAND_AREA_WEIGHT"))
     distance_weight = float(os.getenv("DISTANCE_WEIGHT"))
 
     min_price_ratio, max_price_ratio = _get_min_max_values(
-        list(map(lambda x: x.ratio, immo_data))
+        list(map(lambda x: x.ratio, rateable))
     )
     min_living_area, max_living_area = _get_min_max_values(
-        list(map(lambda x: x.living_area, immo_data))
+        list(map(lambda x: x.living_area, rateable))
     )
     min_land_area, max_land_area = _get_min_max_values(
-        list(map(lambda x: x.land_area, immo_data))
+        list(map(lambda x: x.land_area, rateable))
     )
     min_distance, max_distance = _get_min_max_values(
-        list(map(lambda x: x.distance, immo_data))
+        list(map(lambda x: x.distance, rateable))
     )
 
-    for immo in immo_data:
+    for immo in rateable:
         price_adjusted_value = _get_normalized_value(
             immo.ratio, min_price_ratio, max_price_ratio, inverted=True
         )
@@ -49,16 +53,22 @@ def calculate_rating(immo_data: list[ImmoData]):
             +distance_weight * distance_adjusted_value
 
     # Scale the rating between 1 and 10
-    ratings = list(map(lambda x: x.rating, immo_data))
+    ratings = list(map(lambda x: x.rating, rateable))
     min_rating = min(ratings)
     max_rating = max(ratings)
 
     if min_rating != max_rating:
-        for immo in immo_data:
+        for immo in rateable:
             scaled_rating = (
                 1 + ((immo.rating - min_rating) / (max_rating - min_rating)) * 9
             )
             immo.rating = scaled_rating
+
+
+def _has_required_data(immo: ImmoData) -> bool:
+    if immo.type == ReportType.HOUSE:
+        return immo.living_area is not None and immo.living_area > 0
+    return immo.land_area is not None and immo.land_area > 0
 
 
 def _get_min_max_values(values: list[int]):
