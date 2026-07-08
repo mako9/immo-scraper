@@ -28,16 +28,8 @@ def _load_and_store_data():
     house_listings, land_listings = _get_results()
     calculate_rating(house_listings)
     calculate_rating(land_listings)
-    house_listings = sorted(
-        house_listings,
-        key=lambda listing: (listing.type.name, listing.rating, listing.ratio),
-        reverse=True,
-    )
-    land_listings = sorted(
-        land_listings,
-        key=lambda listing: (listing.type.name, listing.rating, listing.ratio),
-        reverse=True,
-    )
+    house_listings = _sort_listings(house_listings)
+    land_listings = _sort_listings(land_listings)
 
     print(
         f"Found {len(house_listings)} house listings and {len(land_listings)} land listings"
@@ -57,6 +49,16 @@ def _get_results() -> tuple[set[ImmoData], set[ImmoData]]:
     return _cleanup_results(house_listings), _cleanup_results(land_listings)
 
 
+def _sort_listings(listings: list) -> list:
+    unrated = [l for l in listings if l.rating is None]
+    rated = sorted(
+        [l for l in listings if l.rating is not None],
+        key=lambda listing: (listing.type.name, listing.rating, listing.ratio),
+        reverse=True,
+    )
+    return unrated + rated
+
+
 def _cleanup_results(listings: list[ImmoData]) -> set[ImmoData]:
     return _deduplicate_results(
         {
@@ -72,7 +74,10 @@ def _cleanup_results(listings: list[ImmoData]) -> set[ImmoData]:
 def _deduplicate_results(data: set[ImmoData]) -> set[ImmoData]:
     seen = {}
     for item in data:
-        key = (item.title, item.price, item.land_area)
+        if item.price and (item.living_area or item.land_area):
+            key = (item.price, item.living_area, item.land_area)
+        else:
+            key = (item.title, item.price, item.land_area)
         if key not in seen:
             seen[key] = item
     return set(seen.values())

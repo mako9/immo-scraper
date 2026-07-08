@@ -49,7 +49,8 @@ def _get_results_of_type(type: ReportType) -> list[ImmoData]:
 
     return list(
         filter(
-            lambda x: x is not None, map(lambda x: _get_immo_data(type, x[0], city=x[1]), listings)
+            lambda x: x is not None,
+            map(lambda x: _get_immo_data(type, x[0], city=x[1]), listings),
         )
     )
 
@@ -93,7 +94,9 @@ def _get_soup(url) -> Optional[BeautifulSoup]:
     return soup
 
 
-def _get_immo_data(type: ReportType, listing, city: str | None = None) -> Optional[ImmoData]:
+def _get_immo_data(
+    type: ReportType, listing, city: str | None = None
+) -> Optional[ImmoData]:
     """Extract ImmoData from a listing element"""
     try:
         # Get title from the listing - inside mw-object-col-title div

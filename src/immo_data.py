@@ -24,7 +24,7 @@ class ImmoData:
     ratio: float
     distance: int
     location: Optional[str]
-    rating: float = 0.0
+    rating: Optional[float] = None
 
     def __init__(self, title, price, living_area, land_area, link, type, distance, location=None):
         self.title = title
@@ -43,6 +43,7 @@ class ImmoData:
                 self.ratio = self.price / self.living_area
             elif self.land_area is not None and self.land_area > 0:
                 self.ratio = self.price / self.land_area
+        self.rating = None
 
     def __eq__(self, other):
         # Use link as the primary unique identifier since it contains the estate ID
