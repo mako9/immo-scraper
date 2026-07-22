@@ -13,6 +13,8 @@ beautifulsoup4 = "^4.14.3"
 selenium = "^4.41.0"
 lzstring = "^1.0.4"
 truststore = "^0.10.0"
+undetected-chromedriver = "^3"
+setuptools = "*"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0.0"
