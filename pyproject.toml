@@ -3,6 +3,7 @@ name = "immo-scraper"
 version = "0.0.1"
 description = "Collects and processes data from different real estate platforms."
 authors = ["Mario Kohlhoff"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
