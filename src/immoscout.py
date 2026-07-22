@@ -1,12 +1,7 @@
 from typing import Optional
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
+import src.browser as browser
 from src.url import get_url_without_page, get_url_with_page
 from src.immo_data import ImmoData, ReportType
 from src.immo_platform import ImmoPlatform
@@ -14,18 +9,28 @@ from src.immo_platform import ImmoPlatform
 BASE_URL = "https://www.immobilienscout24.de"
 URL = "https://www.immobilienscout24.de/Suche/radius/+++?centerofsearchaddress=Fulda%20(Kreis);;;1276007005017;;***&geocoordinates=50.54398;9.7184;§§§.0&enteredFrom=one_step_search&pagenumber=$$$&price=-###"
 
-executor_url: str = None
-session_id: str = None
 driver = None
 
 
+class _BlockedException(Exception):
+    pass
+
+
 def get_immoscout_results():
-    house_listings = _get_results_of_type(ReportType.HOUSE)
-    land_listings = _get_results_of_type(ReportType.LAND)
-
-    driver.quit()
-
-    return house_listings, land_listings
+    global driver
+    try:
+        house_listings = _get_results_of_type(ReportType.HOUSE)
+        land_listings = _get_results_of_type(ReportType.LAND)
+        if driver is not None:
+            browser.save_cookies(driver, "immoscout")
+        return house_listings, land_listings
+    except _BlockedException:
+        print("IS24 blocked — run 'python main.py --setup immoscout' to refresh session")
+        return [], []
+    finally:
+        if driver is not None:
+            driver.quit()
+            driver = None
 
 
 def _get_url_without_page(type: ReportType):
@@ -33,34 +38,19 @@ def _get_url_without_page(type: ReportType):
 
 
 def _get_results_of_type(type: ReportType) -> list[ImmoData]:
-    # Find all the relevant listings
     listings = []
     url_without_page = _get_url_without_page(type)
-
     index = 1
     while True:
         url = get_url_with_page(url_without_page, index)
         print(url)
         soup = _get_soup(url, By.ID, "result-list-content")
         new_listings = soup.find_all("div", {"class": "listing-card"})
-        listings += list(
-            map(
-                lambda x: (
-                    x,
-                    _get_listing_soup(x),
-                ),
-                new_listings,
-            )
-        )
+        listings += list(map(lambda x: (x, _get_listing_soup(x)), new_listings))
         if len(new_listings) < 20:
             break
         index += 1
-
-    return list(
-        filter(
-            lambda x: x is not None, map(lambda x: _get_immo_data(type, x), listings)
-        )
-    )
+    return list(filter(lambda x: x is not None, map(lambda x: _get_immo_data(type, x), listings)))
 
 
 def _get_listing_soup(listing):
@@ -70,26 +60,15 @@ def _get_listing_soup(listing):
     return _get_soup(f"{BASE_URL}{href}", By.CLASS_NAME, "main-criteria-container")
 
 
-def _get_soup(url, type, name):
-    global driver  # Declare the variables as nonlocal
-    # Send the request and get the HTML response
+def _get_soup(url, by, name):
+    global driver
     if driver is None:
-        service = Service()
-        options = webdriver.ChromeOptions()
-        driver = webdriver.Chrome(service=service, options=options)
+        driver = browser.get_driver(headless=True)
+        browser.load_cookies(driver, "immoscout", BASE_URL)
     driver.get(url)
-    wait = WebDriverWait(driver, 60)  # Wait up to 60 seconds
-
-    # Once we need to accept manually the Captcha. The browser session will then be reused.
-
-    wait.until(EC.presence_of_element_located((type, name)))
-
-    html = driver.page_source
-
-    # Parse the HTML response with BeautifulSoup
-    soup = BeautifulSoup(html, "html.parser")
-
-    return soup
+    if not browser.wait_for_element(driver, by, name, timeout=30):
+        raise _BlockedException()
+    return BeautifulSoup(driver.page_source, "html.parser")
 
 
 def _get_immo_data(type, listing):
@@ -103,7 +82,6 @@ def _get_immo_data(type, listing):
         land_area = infos[3].text.strip() if len(infos) > 3 else None
     else:
         land_area = infos[1].text.strip()
-
     return ImmoData(
         link=BASE_URL + _get_href(listing[0]),
         title=listing[0].find("h2", {"data-testid": "headline"}).text.strip(),

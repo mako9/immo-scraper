@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 import truststore
@@ -22,6 +23,37 @@ _BLACKLIST_PATTERN = re.compile(
     "|".join(map(re.escape, BLACKLISTED_KEYWORDS)),
     re.IGNORECASE,
 )
+
+
+_SETUP_PLATFORMS = {
+    "immoscout": {
+        "url": "https://www.immobilienscout24.de",
+        "env_key": "IMMOSCOUT_ENABLED",
+    },
+    "vr_immobilien": {
+        "url": "https://v-r-immobilien.de",
+        "env_key": "VR_IMMOBILIEN_ENABLED",
+    },
+    "kleinanzeigen": {
+        "url": "https://www.kleinanzeigen.de",
+        "env_key": "KLEINANZEIGEN_ENABLED",
+    },
+}
+
+
+def _run_setup(platforms: list[str]) -> None:
+    import src.browser as browser
+    from selenium.webdriver.common.by import By
+    for platform in platforms:
+        cfg = _SETUP_PLATFORMS[platform]
+        print(f"Setting up {platform} — solve the captcha in the browser window, then wait...")
+        drv = browser.get_driver(headless=False)
+        browser.load_cookies(drv, platform, cfg["url"])
+        drv.get(cfg["url"])
+        browser.wait_for_element(drv, By.TAG_NAME, "body", timeout=300)
+        browser.save_cookies(drv, platform)
+        drv.quit()
+        print(f"Cookies saved for {platform}.")
 
 
 def _load_and_store_data():
@@ -105,5 +137,23 @@ def _get_result_for_platform(
 
 # Load the environment variables from the .env file
 load_dotenv()
-# Load and store data in .xls file
-_load_and_store_data()
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--setup",
+    nargs="?",
+    const="all",
+    choices=["immoscout", "vr_immobilien", "kleinanzeigen", "all"],
+    help="Run one-time captcha setup for a platform (or all enabled ones)",
+)
+args = parser.parse_args()
+
+if args.setup:
+    platforms = (
+        [p for p, cfg in _SETUP_PLATFORMS.items() if os.getenv(cfg["env_key"]) == "true"]
+        if args.setup == "all"
+        else [args.setup]
+    )
+    _run_setup(platforms)
+else:
+    _load_and_store_data()
