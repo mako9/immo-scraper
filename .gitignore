@@ -134,6 +134,7 @@ poetry.lock
 # Created files
 *.xls
 *.xlsx
+.last_run_date
 
 # VS Code
 .DS_Store

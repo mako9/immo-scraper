@@ -1,4 +1,5 @@
 import re
+import time
 from typing import Optional
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
@@ -11,6 +12,7 @@ BASE_URL = "https://www.kleinanzeigen.de"
 URL = f"{BASE_URL}/+++/***/preis::###$$$/anzeige:angebote/c20^^^l4619r§§§"
 
 driver = None
+was_blocked = False
 
 
 class _BlockedException(Exception):
@@ -18,7 +20,8 @@ class _BlockedException(Exception):
 
 
 def get_kleinanzeigen_results():
-    global driver
+    global driver, was_blocked
+    was_blocked = False
     try:
         house_listings = _get_results_of_type(ReportType.HOUSE)
         land_listings = _get_results_of_type(ReportType.LAND)
@@ -26,12 +29,17 @@ def get_kleinanzeigen_results():
             browser.save_cookies(driver, "kleinanzeigen")
         return house_listings, land_listings
     except _BlockedException:
+        was_blocked = True
         print("Kleinanzeigen blocked — run 'python main.py --setup kleinanzeigen' to refresh session")
         return [], []
     finally:
         if driver is not None:
             driver.quit()
             driver = None
+
+
+def get_setup_url() -> str:
+    return _get_url_with_page(_get_url_without_page(ReportType.HOUSE), 1)
 
 
 def _get_url_without_page(type: ReportType) -> str:
@@ -43,20 +51,39 @@ def _get_url_without_page(type: ReportType) -> str:
 
 
 def _get_results_of_type(type: ReportType):
+    global was_blocked
     listings = []
     url_without_page = _get_url_without_page(type)
     index = 1
     while True:
         url = _get_url_with_page(url_without_page, index)
         print(url)
-        soup = _get_soup(url, "article[data-adid]")
+        try:
+            soup = _get_soup(url, "article[data-adid]")
+        except _BlockedException:
+            if listings:
+                break
+            raise
         new_listings = soup.find_all("article", attrs={"data-adid": True})
-        listings += list(map(lambda x: (x, _get_listing_soup(x)), new_listings))
+        listings += new_listings
         print(len(new_listings))
         if soup.find("a", {"aria-label": "Nächste"}) is None:
             break
         index += 1
-    return list(map(lambda x: _get_immo_data(type, x), filter(lambda x: x is not None, listings)))
+    results = []
+    detail_page_blocked = False
+    for listing in listings:
+        detail_soup = None
+        if not detail_page_blocked:
+            try:
+                detail_soup = _get_listing_soup(listing)
+            except _BlockedException:
+                was_blocked = True
+                detail_page_blocked = True
+        data = _get_immo_data(type, (listing, detail_soup))
+        if data is not None:
+            results.append(data)
+    return results
 
 
 def _get_listing_soup(listing):
@@ -69,9 +96,13 @@ def _get_listing_soup(listing):
 def _get_soup(url, css_selector):
     global driver
     if driver is None:
-        driver = browser.get_driver(headless=True)
+        driver = browser.get_driver(headless=False)
         browser.load_cookies(driver, "kleinanzeigen", BASE_URL)
-    driver.get(url)
+    try:
+        driver.get(url)
+        time.sleep(1)
+    except Exception:
+        raise _BlockedException()
     if not browser.wait_for_element(driver, By.CSS_SELECTOR, css_selector, timeout=60):
         raise _BlockedException()
     return BeautifulSoup(driver.page_source, "html.parser")

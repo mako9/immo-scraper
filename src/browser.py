@@ -10,6 +10,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 _COOKIES_DIR = Path.home() / ".immo-scraper"
+_PROFILE_DIR = Path.home() / ".immo-scraper" / "chrome-profile"
 _CHROME_BINARY = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 
@@ -24,9 +25,17 @@ def _chrome_major_version() -> int | None:
 
 def get_driver(headless: bool = True) -> uc.Chrome:
     options = uc.ChromeOptions()
+    _PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        return uc.Chrome(options=options, headless=headless, version_main=_chrome_major_version())
-    except zipfile.BadZipFile:
+        driver = uc.Chrome(
+            options=options,
+            user_data_dir=str(_PROFILE_DIR),
+            headless=headless,
+            version_main=_chrome_major_version(),
+        )
+        driver.set_page_load_timeout(90)
+        return driver
+    except (zipfile.BadZipFile, json.JSONDecodeError):
         raise RuntimeError(
             "ChromeDriver download failed — likely a captive portal or no internet access. "
             "Authenticate on the network in your browser, then retry."
@@ -38,8 +47,11 @@ def load_cookies(driver, platform_name: str, base_url: str) -> None:
     if not cookie_file.exists():
         return
     driver.get(base_url)
-    with open(cookie_file) as f:
-        cookies = json.load(f)
+    try:
+        with open(cookie_file) as f:
+            cookies = json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return
     for cookie in cookies:
         try:
             driver.add_cookie(cookie)

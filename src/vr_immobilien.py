@@ -10,6 +10,7 @@ URL = "https://v-r-immobilien.de/immobilien/?quick-erwerbsart=buy&quick-objektar
 LOCATIONS = ["Fulda", "Künzell", "Petersberg", "Eichenzell", "Hofbieber", "Dipperz"]
 
 driver = None
+was_blocked = False
 
 
 class _BlockedException(Exception):
@@ -17,7 +18,8 @@ class _BlockedException(Exception):
 
 
 def get_vr_immobilien_results():
-    global driver
+    global driver, was_blocked
+    was_blocked = False
     try:
         house_listings = _get_results_of_type(ReportType.HOUSE)
         land_listings = _get_results_of_type(ReportType.LAND)
@@ -25,7 +27,11 @@ def get_vr_immobilien_results():
             browser.save_cookies(driver, "vr_immobilien")
         return house_listings, land_listings
     except _BlockedException:
+        was_blocked = True
         print("VR Immobilien blocked — run 'python main.py --setup vr_immobilien' to refresh session")
+        return [], []
+    except RuntimeError as e:
+        print(f"VR Immobilien scraper failed: {e}")
         return [], []
     finally:
         if driver is not None:
@@ -49,6 +55,11 @@ def _get_results_of_type(type: ReportType) -> list[ImmoData]:
     return list(filter(lambda x: x is not None, map(lambda x: _get_immo_data(type, x[0], city=x[1]), listings)))
 
 
+def get_setup_url() -> str:
+    url = _get_url_for_type(ReportType.HOUSE)
+    return _get_url_for_location(url, LOCATIONS[0])
+
+
 def _get_url_for_type(type: ReportType):
     object_type = "house" if type == ReportType.HOUSE else "plot"
     return URL.replace("***", object_type, 1)
@@ -60,10 +71,10 @@ def _get_url_for_location(url: str, location: str) -> str:
 
 def _get_soup(url) -> Optional[BeautifulSoup]:
     global driver
-    if driver is None:
-        driver = browser.get_driver(headless=True)
-        browser.load_cookies(driver, "vr_immobilien", BASE_URL)
     try:
+        if driver is None:
+            driver = browser.get_driver(headless=False)
+            browser.load_cookies(driver, "vr_immobilien", BASE_URL)
         driver.get(url)
     except WebDriverException:
         return None

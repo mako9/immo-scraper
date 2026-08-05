@@ -1,5 +1,8 @@
+from urllib.parse import parse_qs, urlparse
+
 from bs4 import BeautifulSoup
 
+import main
 from src.immo_data import ReportType
 import src.immoscout as immoscout
 import src.immowelt as immowelt
@@ -22,7 +25,7 @@ def test_immoscout_get_immo_data_parses_expected_fields():
     """
 
     listing_tag = BeautifulSoup(listing_html, "html.parser").div
-    data = immoscout._get_immo_data(ReportType.HOUSE, (listing_tag, None))
+    data = immoscout._get_immo_data(ReportType.HOUSE, listing_tag)
 
     assert data.title == "Scout Title"
     assert data.price == 100000.0
@@ -46,7 +49,7 @@ def test_immoscout_get_immo_data_extracts_location():
     """
 
     listing_tag = BeautifulSoup(listing_html, "html.parser").div
-    data = immoscout._get_immo_data(ReportType.HOUSE, (listing_tag, None))
+    data = immoscout._get_immo_data(ReportType.HOUSE, listing_tag)
 
     assert data.location == "36043 Fulda"
 
@@ -58,7 +61,8 @@ def test_immowelt_slugify():
     assert immowelt._slugify("Köln") == "koeln"
 
 
-def test_immowelt_resolve_location_passthrough():
+def test_immowelt_resolve_location_passthrough(monkeypatch):
+    monkeypatch.delenv("RADIUS", raising=False)
     assert immowelt._resolve_location("POCODE2604") == ("POCODE2604", None)
     assert immowelt._resolve_location("AD08DE2812") == ("AD08DE2812", None)
     assert immowelt._resolve_location("pocode2604") == ("pocode2604", None)
@@ -182,7 +186,103 @@ def test_sparkasse_extracts_location_from_geo_label():
     assert data.location == "Fulda"
 
 
+def test_sparkasse_maps_current_api_response():
+    current_api_estate = {
+        "id": "FID-F12-388-804",
+        "title": "Modernes Haus in Künzell",
+        "subtitle": "Künzell",
+        "priceData": {"value": "679.000 €"},
+        "mainFacts": [
+            {"name": "livingSpace", "value": "162 m²"},
+            {"name": "propertySize", "value": "550 m²"},
+        ],
+    }
+
+    data = sparkasse._get_immo_data_from_api(ReportType.HOUSE, current_api_estate)
+
+    assert data.title == "Modernes Haus in Künzell"
+    assert data.price == 679000.0
+    assert data.living_area == 162.0
+    assert data.land_area == 550.0
+    assert data.location == "Künzell"
+    assert "eid=FID-F12-388-804" in data.link
+
+
+def test_sparkasse_uses_current_api_and_resolves_location(monkeypatch):
+    class FakeResponse:
+        status_code = 200
+        text = '<div data-sip-api-proxy="/proxy"></div>'
+
+        def __init__(self, payload=None):
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    requests = []
+
+    def fake_post(_url, json, **_kwargs):
+        requests.append(json)
+        route = json["route"]
+        if route.startswith("immobilien-api/locations?"):
+            return FakeResponse([
+                {"latitude": 50.53881, "longitude": 9.7062},
+            ])
+        if "estateTypeGroupingIds=396" in route:
+            return FakeResponse({
+                "totalItems": 1,
+                "page": 1,
+                "pageCount": 1,
+                "estates": [{
+                    "id": "house-1",
+                    "title": "Haus",
+                    "subtitle": "Künzell",
+                    "priceData": {"value": "400.000 €"},
+                    "mainFacts": [],
+                }],
+            })
+        return FakeResponse({"totalItems": 0, "page": 1, "pageCount": 0, "estates": []})
+
+    monkeypatch.setattr(sparkasse.requests, "get", lambda *_args, **_kwargs: FakeResponse())
+    monkeypatch.setattr(sparkasse.requests, "post", fake_post)
+    monkeypatch.setenv("LOCATION", "Künzell")
+    monkeypatch.setenv("RADIUS", "10")
+    monkeypatch.setenv("PRICE_UPPER_LIMIT", "1500000")
+
+    houses, land = sparkasse.get_sparkasse_results()
+
+    assert [listing.title for listing in houses] == ["Haus"]
+    assert land == []
+    location_query = parse_qs(urlparse(requests[0]["route"]).query)
+    assert location_query == {"pattern": ["Künzell"], "limit": ["1"]}
+    house_query = parse_qs(urlparse(requests[1]["route"]).query)
+    assert house_query["latitude"] == ["50.53881"]
+    assert house_query["longitude"] == ["9.7062"]
+    assert house_query["radius"] == ["10"]
+    assert house_query["maxPrice"] == ["1500000"]
+    assert house_query["estateTypeGroupingIds"] == ["396"]
+    assert house_query["offerType"] == ["2"]
+
+
 # ----- Kleinanzeigen helpers/tests -----
+
+
+def test_kleinanzeigen_get_setup_url_uses_first_house_search_page(monkeypatch):
+    monkeypatch.setenv("ZIP_CODE", "36093")
+    monkeypatch.setenv("RADIUS", "10")
+    monkeypatch.setenv("PRICE_UPPER_LIMIT", "1500000")
+
+    assert kleinanzeigen.get_setup_url() == (
+        "https://www.kleinanzeigen.de/s-haus-kaufen/36093/"
+        "preis::1500000/anzeige:angebote/c208l4619r10"
+    )
+
+
+def test_kleinanzeigen_setup_uses_search_url_generator():
+    assert (
+        main._SETUP_PLATFORMS["kleinanzeigen"]["setup_url_fn"]
+        is kleinanzeigen.get_setup_url
+    )
 
 
 def _make_list_page_html(has_next: bool):
@@ -223,6 +323,19 @@ def test_kleinanzeigen_get_href_missing_article_returns_none():
 
     soup = BeautifulSoup("<li></li>", "html.parser")
     assert kleinanzeigen._get_href(soup) is None
+
+
+def test_kleinanzeigen_was_blocked_set_on_exception(monkeypatch):
+    monkeypatch.setattr(kleinanzeigen, "_get_results_of_type", lambda t: (_ for _ in ()).throw(kleinanzeigen._BlockedException()))
+    kleinanzeigen.get_kleinanzeigen_results()
+    assert kleinanzeigen.was_blocked is True
+
+
+def test_kleinanzeigen_was_blocked_false_on_success(monkeypatch):
+    monkeypatch.setattr(kleinanzeigen, "_get_results_of_type", lambda t: [])
+    monkeypatch.setattr(kleinanzeigen, "driver", None)
+    kleinanzeigen.get_kleinanzeigen_results()
+    assert kleinanzeigen.was_blocked is False
 
 
 def test_kleinanzeigen_get_immo_data_parses_expected_fields():
@@ -296,3 +409,69 @@ def test_kleinanzeigen_get_results_of_type_pagination(monkeypatch):
     results = kleinanzeigen._get_results_of_type(ReportType.HOUSE)
     assert len(results) == 2
     assert all(r.link.endswith("/detail/1") for r in results)
+
+
+def test_kleinanzeigen_keeps_prior_results_when_later_page_times_out(monkeypatch):
+    page1 = BeautifulSoup(_make_list_page_html(has_next=True), "html.parser")
+    detail = BeautifulSoup(_make_detail_page_html(), "html.parser")
+
+    def fake_get_soup(url, _css_selector):
+        if "/detail/" in url:
+            return detail
+        if "seite:2" in url:
+            raise kleinanzeigen._BlockedException()
+        return page1
+
+    monkeypatch.setattr(kleinanzeigen, "was_blocked", False)
+    monkeypatch.setattr(
+        kleinanzeigen, "_get_url_without_page", lambda _type: "http://example.com/page$$$"
+    )
+    monkeypatch.setattr(kleinanzeigen, "_get_soup", fake_get_soup)
+
+    results = kleinanzeigen._get_results_of_type(ReportType.HOUSE)
+
+    assert [listing.title for listing in results] == ["My Title"]
+    assert kleinanzeigen.was_blocked is False
+
+
+def test_kleinanzeigen_keeps_list_results_when_a_detail_page_is_blocked(monkeypatch):
+    page = BeautifulSoup(_make_list_page_html(has_next=False), "html.parser")
+    monkeypatch.setattr(kleinanzeigen, "was_blocked", False)
+    monkeypatch.setattr(kleinanzeigen, "_get_url_without_page", lambda _type: "http://example.com/page$$$")
+    monkeypatch.setattr(kleinanzeigen, "_get_soup", lambda *_args: page)
+    monkeypatch.setattr(
+        kleinanzeigen,
+        "_get_listing_soup",
+        lambda _listing: (_ for _ in ()).throw(kleinanzeigen._BlockedException()),
+    )
+
+    results = kleinanzeigen._get_results_of_type(ReportType.HOUSE)
+
+    assert [listing.title for listing in results] == ["My Title"]
+    assert kleinanzeigen.was_blocked is True
+
+
+def test_immoscout_was_blocked_set_on_exception(monkeypatch):
+    monkeypatch.setattr(immoscout, "_get_results_of_type", lambda t: (_ for _ in ()).throw(immoscout._BlockedException()))
+    immoscout.get_immoscout_results()
+    assert immoscout.was_blocked is True
+
+
+def test_immoscout_was_blocked_false_on_success(monkeypatch):
+    monkeypatch.setattr(immoscout, "_get_results_of_type", lambda t: [])
+    monkeypatch.setattr(immoscout, "driver", None)
+    immoscout.get_immoscout_results()
+    assert immoscout.was_blocked is False
+
+
+def test_vr_immobilien_was_blocked_set_on_exception(monkeypatch):
+    monkeypatch.setattr(vr, "_get_results_of_type", lambda t: (_ for _ in ()).throw(vr._BlockedException()))
+    vr.get_vr_immobilien_results()
+    assert vr.was_blocked is True
+
+
+def test_vr_immobilien_was_blocked_false_on_success(monkeypatch):
+    monkeypatch.setattr(vr, "_get_results_of_type", lambda t: [])
+    monkeypatch.setattr(vr, "driver", None)
+    vr.get_vr_immobilien_results()
+    assert vr.was_blocked is False

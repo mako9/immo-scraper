@@ -9,9 +9,9 @@ truststore.inject_into_ssl()
 from src.immo_data import ImmoData
 from src.immo_platform import ImmoPlatform
 from src.immowelt import get_immowelt_results
-from src.immoscout import get_immoscout_results
-from src.kleinanzeigen import get_kleinanzeigen_results
-from src.vr_immobilien import get_vr_immobilien_results
+from src.immoscout import get_immoscout_results, get_setup_url as _immoscout_setup_url
+from src.kleinanzeigen import get_kleinanzeigen_results, get_setup_url as _kleinanzeigen_setup_url
+from src.vr_immobilien import get_vr_immobilien_results, get_setup_url as _vr_setup_url
 from src.sparkasse import get_sparkasse_results
 from src.rating import calculate_rating
 from src.xls import write_listings
@@ -28,14 +28,17 @@ _BLACKLIST_PATTERN = re.compile(
 _SETUP_PLATFORMS = {
     "immoscout": {
         "url": "https://www.immobilienscout24.de",
+        "setup_url_fn": _immoscout_setup_url,
         "env_key": "IMMOSCOUT_ENABLED",
     },
     "vr_immobilien": {
         "url": "https://v-r-immobilien.de",
+        "setup_url_fn": _vr_setup_url,
         "env_key": "VR_IMMOBILIEN_ENABLED",
     },
     "kleinanzeigen": {
         "url": "https://www.kleinanzeigen.de",
+        "setup_url_fn": _kleinanzeigen_setup_url,
         "env_key": "KLEINANZEIGEN_ENABLED",
     },
 }
@@ -43,20 +46,20 @@ _SETUP_PLATFORMS = {
 
 def _run_setup(platforms: list[str]) -> None:
     import src.browser as browser
-    from selenium.webdriver.common.by import By
     for platform in platforms:
         cfg = _SETUP_PLATFORMS[platform]
-        print(f"Setting up {platform} — solve the captcha in the browser window, then wait...")
+        print(f"Setting up {platform} — solve the captcha in the browser window.")
         drv = browser.get_driver(headless=False)
         browser.load_cookies(drv, platform, cfg["url"])
-        drv.get(cfg["url"])
-        browser.wait_for_element(drv, By.TAG_NAME, "body", timeout=300)
+        setup_url = cfg["setup_url_fn"]() if "setup_url_fn" in cfg else cfg["url"]
+        drv.get(setup_url)
+        input(f"  Press Enter here once the page loaded successfully...")
         browser.save_cookies(drv, platform)
         drv.quit()
         print(f"Cookies saved for {platform}.")
 
 
-def _load_and_store_data():
+def load_and_store_data():
     house_listings, land_listings = _get_results()
     calculate_rating(house_listings)
     calculate_rating(land_listings)
@@ -68,6 +71,10 @@ def _load_and_store_data():
     )
 
     write_listings(house_listings, land_listings)
+
+
+def _load_and_store_data():
+    load_and_store_data()
 
 
 def _get_results() -> tuple[set[ImmoData], set[ImmoData]]:
@@ -135,25 +142,25 @@ def _get_result_for_platform(
         return get_sparkasse_results()
 
 
-# Load the environment variables from the .env file
-load_dotenv()
+if __name__ == "__main__":
+    load_dotenv()
 
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--setup",
-    nargs="?",
-    const="all",
-    choices=["immoscout", "vr_immobilien", "kleinanzeigen", "all"],
-    help="Run one-time captcha setup for a platform (or all enabled ones)",
-)
-args = parser.parse_args()
-
-if args.setup:
-    platforms = (
-        [p for p, cfg in _SETUP_PLATFORMS.items() if os.getenv(cfg["env_key"]) == "true"]
-        if args.setup == "all"
-        else [args.setup]
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--setup",
+        nargs="?",
+        const="all",
+        choices=["immoscout", "vr_immobilien", "kleinanzeigen", "all"],
+        help="Run one-time captcha setup for a platform (or all enabled ones)",
     )
-    _run_setup(platforms)
-else:
-    _load_and_store_data()
+    args = parser.parse_args()
+
+    if args.setup:
+        platforms = (
+            [p for p, cfg in _SETUP_PLATFORMS.items() if os.getenv(cfg["env_key"]) == "true"]
+            if args.setup == "all"
+            else [args.setup]
+        )
+        _run_setup(platforms)
+    else:
+        _load_and_store_data()
