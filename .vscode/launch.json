@@ -11,6 +11,15 @@
       "program": "${workspaceFolder}/main.py"
     },
     {
+      "name": "immo_scraper daily",
+      "type": "debugpy",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "program": "${workspaceFolder}/run_daily.py"
+    },
+    {
       "name": "immo_scraper --setup all",
       "type": "debugpy",
       "request": "launch",

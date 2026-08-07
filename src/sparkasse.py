@@ -1,6 +1,8 @@
 import os
 import re
+import time
 from typing import Optional
+from urllib.parse import urlencode
 
 import requests
 
@@ -8,6 +10,12 @@ from src.immo_data import ImmoData, ReportType
 
 BASE_URL = "https://www.sparkasse-fulda.de"
 SEARCH_URL = f"{BASE_URL}/de/home/privatkunden/immobilien/immobilie-kaufen.html"
+
+_ESTATE_TYPE_GROUPINGS = {
+    ReportType.HOUSE: 396,
+    ReportType.LAND: 397,
+}
+_SALES_OFFER_TYPE = 2
 
 
 def get_sparkasse_results():
@@ -26,15 +34,27 @@ def get_sparkasse_results():
         except Exception:
             radius_km = None
 
+    proxy_url = _get_proxy_url()
+    if proxy_url is None:
+        print("No Sparkasse API proxy found.")
+        return [], []
+
+    coordinates = _resolve_location(proxy_url, search_location)
+    if search_location and coordinates is None:
+        print(f"Could not resolve Sparkasse location: {search_location}")
+        return [], []
+
     house_listings = _get_results_of_type(
         ReportType.HOUSE,
-        location=search_location,
+        proxy_url=proxy_url,
+        coordinates=coordinates,
         radius_km=radius_km,
         max_price=max_price,
     )
     land_listings = _get_results_of_type(
         ReportType.LAND,
-        location=search_location,
+        proxy_url=proxy_url,
+        coordinates=coordinates,
         radius_km=radius_km,
         max_price=max_price,
     )
@@ -42,18 +62,8 @@ def get_sparkasse_results():
     return house_listings, land_listings
 
 
-def _get_results_of_type(
-    type: ReportType,
-    location: Optional[str] = None,
-    radius_km: Optional[int] = None,
-    max_price: Optional[str] = None,
-):
-    """Collect listings for the given ReportType using the site's API."""
-    listings = []
-
-    # Try API first
+def _get_proxy_url() -> Optional[str]:
     print("Fetching API from", SEARCH_URL)
-    proxy_attr = None
     try:
         resp = requests.get(
             SEARCH_URL,
@@ -64,136 +74,116 @@ def _get_results_of_type(
             m = re.search(r'data-sip-api-proxy\s*=\s*"([^"]+)"', resp.text)
             if m:
                 proxy_attr = m.group(1)
+                return (
+                    proxy_attr if proxy_attr.startswith("http") else BASE_URL + proxy_attr
+                )
     except Exception:
         pass
-
-    zip_city_estate_id = None
-    perimeter = None
-    if proxy_attr:
-        proxy_url = (
-            proxy_attr if proxy_attr.startswith("http") else BASE_URL + proxy_attr
-        )
-
-        if location:
-            zip_city_estate_id = location
-            if radius_km is not None:
-                perimeter = int(radius_km)
-
-        page = 1
-        size = 10  # Initial size, will be updated from API response
-        pages_fetched = 0
-
-        while True:
-            pages_fetched += 1
-
-            print(
-                "API request",
-                proxy_url,
-                "page",
-                page,
-                "location",
-                zip_city_estate_id,
-                "perimeter",
-                perimeter,
-                "max_price",
-                max_price,
-            )
-            estates_resp = _fetch_estates_via_api(
-                proxy_url, page, size, type, zip_city_estate_id, perimeter, max_price
-            )
-            if not estates_resp:
-                break
-
-            # Update page size from response for subsequent requests
-            if "page_size" in estates_resp:
-                size = estates_resp["page_size"]
-
-            estates = estates_resp.get("_embedded", {}).get("estate", [])
-            if not estates:
-                # Fallback to old format for compatibility
-                estates = estates_resp.get("estates", [])
-            if not estates:
-                break
-
-            page_count = estates_resp.get("page_count") or 1
-            try:
-                page_count = int(page_count)
-            except Exception:
-                page_count = 1
-
-            for estate in estates:
-                listings.append((estate, None))
-
-            # Stop if we've processed all pages
-            if page >= page_count:
-                break
-            page += 1
-
-        # Map API estate dicts to ImmoData
-        results = list(
-            filter(None, map(lambda e: _get_immo_data_from_api(type, e), listings))
-        )
-        if results:
-            return results
-
-    print("No API results found.")
-    return []
+    return None
 
 
-def _fetch_estates_via_api(
+def _resolve_location(
+    proxy_url: str, location: Optional[str]
+) -> Optional[tuple[float, float]]:
+    if not location:
+        return None
+
+    route = f"immobilien-api/locations?{urlencode({'pattern': location, 'limit': 1})}"
+    response = _post_api_request(proxy_url, {"route": route})
+    if not isinstance(response, list):
+        return None
+
+    for candidate in response:
+        try:
+            return float(candidate["latitude"]), float(candidate["longitude"])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return None
+
+
+def _get_results_of_type(
+    type: ReportType,
     proxy_url: str,
+    coordinates: Optional[tuple[float, float]] = None,
+    radius_km: Optional[int] = None,
+    max_price: Optional[str] = None,
+) -> list[ImmoData]:
+    """Collect listings for the given ReportType using the current site API."""
+    listings = []
+    page = 1
+    size = 10
+
+    while True:
+        route = _build_estates_route(
+            type, page, size, coordinates, radius_km, max_price
+        )
+        print("API request", proxy_url, "page", page, "route", route)
+        estates_resp = _post_api_request(
+            proxy_url, {"route": route, "return_data": "react_frontend"}
+        )
+        if not isinstance(estates_resp, dict):
+            break
+
+        estates = estates_resp.get("estates", [])
+        if not estates:
+            break
+
+        listings.extend(estates)
+        page_count = estates_resp.get("pageCount", 1)
+        try:
+            page_count = int(page_count)
+        except (TypeError, ValueError):
+            page_count = 1
+        if page >= page_count:
+            break
+        page += 1
+
+    return [
+        listing
+        for estate in listings
+        if (listing := _get_immo_data_from_api(type, estate)) is not None
+    ]
+
+
+def _build_estates_route(
+    type: ReportType,
     page: int,
     size: int,
-    type: ReportType,
-    zip_city_estate_id: Optional[str] = None,
-    radius: Optional[int] = None,
-    max_price: Optional[str] = None,
-):
-    """Request estates from the site's proxy API and return parsed JSON or None"""
-    body = {
-        "route": "estate",
-        "return_data": "teaser_list",
+    coordinates: Optional[tuple[float, float]],
+    radius_km: Optional[int],
+    max_price: Optional[str],
+) -> str:
+    params = {
+        "estateTypeGroupingIds": _ESTATE_TYPE_GROUPINGS[type],
+        "offerType": _SALES_OFFER_TYPE,
+        "offererCategoryConfig": "53050180",
         "page": page,
-        "limit": size,
+        "pageSize": size,
     }
-
-    if zip_city_estate_id:
-        body["zip_city_estate_id"] = zip_city_estate_id
-    if radius is not None:
-        body["perimeter"] = int(radius)
+    if coordinates is not None:
+        latitude, longitude = coordinates
+        params["latitude"] = latitude
+        params["longitude"] = longitude
+    if radius_km is not None:
+        params["radius"] = radius_km
     if max_price:
-        body["max_price"] = max_price
+        params["maxPrice"] = max_price
+    return f"immobilien-api/estates?{urlencode(params)}"
 
-    body["marketing_type"] = "buy"
-    body["usage_type"] = "residential"
-    body["estate_type"] = "house" if type == ReportType.HOUSE else "property"
-    body["sort_by"] = "institute_asc"
-    body["regio_client_id"] = "53050180"
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible)",
-        "Content-Type": "application/json",
-    }
-
+def _post_api_request(proxy_url: str, body: dict) -> Optional[dict | list]:
+    headers = {"User-Agent": "Mozilla/5.0 (compatible)", "Content-Type": "application/json"}
     for attempt in range(8):
         try:
             resp = requests.post(proxy_url, json=body, headers=headers, timeout=15)
             if resp.status_code != 200:
                 return None
-            j = resp.json()
-            if "pending" in j:
-                # wait and retry
-                time_to_wait = 0.2 * (attempt + 1)
-                try:
-                    import time
-
-                    time.sleep(time_to_wait)
-                except Exception:
-                    pass
+            response = resp.json()
+            if isinstance(response, dict) and "pending" in response:
+                time.sleep(0.2 * (attempt + 1))
                 continue
-            return j
-        except Exception as e:
-            print("API request attempt", attempt + 1, "failed, retrying...", e)
+            return response
+        except Exception as error:
+            print("API request attempt", attempt + 1, "failed, retrying...", error)
             return None
     return None
 
@@ -203,7 +193,7 @@ def _get_immo_data_from_api(type: ReportType, listing) -> Optional[ImmoData]:
     try:
         est = listing[0] if isinstance(listing, (list, tuple)) else listing
 
-        title = est.get("headline") or est.get("title", "")
+        title = est.get("title") or est.get("headline", "")
 
         eid = est.get("id")
         link = None
@@ -213,26 +203,26 @@ def _get_immo_data_from_api(type: ReportType, listing) -> Optional[ImmoData]:
             )
             link = f"{detail_page}?eid={eid}"
 
-        price = None
+        price = (est.get("priceData") or {}).get("value")
         living_area = None
         land_area = None
 
-        for fact in est.get("main_facts", []) or []:
-            label = fact.get("label", "").lower()
+        for fact in est.get("mainFacts") or est.get("main_facts", []) or []:
+            label = (fact.get("name") or fact.get("label") or "").lower()
             value = fact.get("value", "")
-            if "kaufpreis" in label:
+            if "kaufpreis" in label and not price:
                 price = value
-            if "wohnfl" in label:
+            if "livingspace" in label or "wohnfl" in label:
                 # Extract numeric value from "150 m²" format
                 m = re.search(r"([\d\.,]+)", value)
                 if m:
                     living_area = _parse_number(m.group(1))
-            elif "grundst" in label:
+            elif "propertysize" in label or "grundst" in label:
                 m = re.search(r"([\d\.,]+)", value)
                 if m:
                     land_area = _parse_number(m.group(1))
 
-        location = est.get("geo_label") or None
+        location = est.get("subtitle") or est.get("geo_label") or None
 
         return ImmoData(
             title=title,
