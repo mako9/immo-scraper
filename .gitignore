@@ -141,3 +141,4 @@ poetry.lock
 
 # tools
 .claude/
+docs/superpowers/
