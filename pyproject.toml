@@ -1,21 +1,25 @@
-[tool.poetry]
+[project]
 name = "immo-scraper"
 version = "0.0.1"
 description = "Collects and processes data from different real estate platforms."
-authors = ["Mario Kohlhoff"]
-package-mode = false
+authors = [{ name = "Mario Kohlhoff" }]
+requires-python = ">=3.11"
+dependencies = [
+    "python-dotenv>=1.2.2,<2.0",
+    "openpyxl>=3.1.5,<4.0",
+    "requests>=2.32.5,<3.0",
+    "beautifulsoup4>=4.14.3,<5.0",
+    "selenium>=4.41.0,<5.0",
+    "lzstring>=1.0.4,<2.0",
+    "truststore>=0.10.0,<0.11.0",
+    "undetected-chromedriver>=3,<4",
+    "setuptools",
+    "google-auth>=2,<3",
+    "google-auth-oauthlib>=1,<2",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-python-dotenv = "^1.2.2"
-openpyxl = "^3.1.5"
-requests = "^2.32.5"
-beautifulsoup4 = "^4.14.3"
-selenium = "^4.41.0"
-lzstring = "^1.0.4"
-truststore = "^0.10.0"
-undetected-chromedriver = "^3"
-setuptools = "*"
+[tool.poetry]
+package-mode = false
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"
