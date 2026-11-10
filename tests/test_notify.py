@@ -1,7 +1,10 @@
-import smtplib
+import base64
+from email import message_from_bytes
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
+from google.auth.exceptions import GoogleAuthError
 
 from src.notify import send_captcha_needed_email, send_new_listings_email
 
@@ -9,60 +12,62 @@ from src.notify import send_captcha_needed_email, send_new_listings_email
 @pytest.fixture(autouse=True)
 def notify_env(monkeypatch):
     monkeypatch.setenv("GMAIL_USER", "sender@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "secret")
     monkeypatch.setenv("NOTIFICATION_RECIPIENT", "recipient@gmail.com")
 
 
+def _decoded_message(mock_post):
+    payload = mock_post.call_args.kwargs["json"]
+    raw = base64.urlsafe_b64decode(payload["raw"])
+    return message_from_bytes(raw)
+
+
 def _send(entries, top_n=30):
-    with patch("src.notify.ssl.create_default_context"), \
-         patch("src.notify.smtplib.SMTP_SSL") as mock_smtp_cls:
-        mock_smtp = MagicMock()
-        mock_smtp_cls.return_value.__enter__.return_value = mock_smtp
+    with patch("src.notify._get_access_token", return_value="access-token"), \
+         patch("src.notify.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(status_code=200)
         send_new_listings_email(entries, top_n)
-        return mock_smtp, mock_smtp_cls
+        return mock_post
 
 
 def _send_captcha(platforms=None):
     if platforms is None:
         platforms = ["kleinanzeigen"]
-    with patch("src.notify.ssl.create_default_context"), \
-         patch("src.notify.smtplib.SMTP_SSL") as mock_smtp_cls:
-        mock_smtp = MagicMock()
-        mock_smtp_cls.return_value.__enter__.return_value = mock_smtp
+    with patch("src.notify._get_access_token", return_value="access-token"), \
+         patch("src.notify.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(status_code=200)
         send_captcha_needed_email(platforms)
-        return mock_smtp, mock_smtp_cls
+        return mock_post
 
 
-def test_connects_to_gmail_ssl():
-    mock_smtp, mock_smtp_cls = _send([("House A", "https://example.com/1")])
-    mock_smtp_cls.assert_called_once()
-    args = mock_smtp_cls.call_args
-    assert args[0][0] == "smtp.gmail.com"
-    assert args[0][1] == 465
+def test_posts_to_gmail_api():
+    mock_post = _send([("House A", "https://example.com/1")])
+    mock_post.assert_called_once()
+    args, kwargs = mock_post.call_args
+    assert args[0] == "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 
 
-def test_logs_in_with_credentials():
-    mock_smtp, _ = _send([("House A", "https://example.com/1")])
-    mock_smtp.login.assert_called_once_with("sender@gmail.com", "secret")
+def test_authenticates_with_access_token():
+    mock_post = _send([("House A", "https://example.com/1")])
+    headers = mock_post.call_args.kwargs["headers"]
+    assert headers["Authorization"] == "Bearer access-token"
 
 
 def test_sends_message():
-    mock_smtp, _ = _send([("House A", "https://example.com/1")])
-    mock_smtp.send_message.assert_called_once()
+    mock_post = _send([("House A", "https://example.com/1")])
+    mock_post.return_value.raise_for_status.assert_called_once()
 
 
 def test_subject_contains_count_and_top_n():
-    mock_smtp, _ = _send([("A", "https://a.com"), ("B", "https://b.com")], top_n=15)
-    msg = mock_smtp.send_message.call_args[0][0]
+    mock_post = _send([("A", "https://a.com"), ("B", "https://b.com")], top_n=15)
+    msg = _decoded_message(mock_post)
     assert "2" in msg["Subject"]
     assert "15" in msg["Subject"]
 
 
 def test_body_contains_all_titles_and_links():
     entries = [("House A", "https://example.com/1"), ("Land B", "https://example.com/2")]
-    mock_smtp, _ = _send(entries)
-    msg = mock_smtp.send_message.call_args[0][0]
-    body = msg.get_payload()
+    mock_post = _send(entries)
+    body = _decoded_message(mock_post).get_payload()
     assert "House A" in body
     assert "https://example.com/1" in body
     assert "Land B" in body
@@ -70,62 +75,65 @@ def test_body_contains_all_titles_and_links():
 
 
 def test_from_and_to_headers():
-    mock_smtp, _ = _send([("X", "https://x.com")])
-    msg = mock_smtp.send_message.call_args[0][0]
+    mock_post = _send([("X", "https://x.com")])
+    msg = _decoded_message(mock_post)
     assert msg["From"] == "sender@gmail.com"
     assert msg["To"] == "recipient@gmail.com"
 
 
-def test_falls_back_to_starttls_on_ssl_failure(capsys):
-    with patch("src.notify.ssl.create_default_context"), \
-         patch("src.notify.smtplib.SMTP_SSL") as mock_ssl_cls, \
-         patch("src.notify.smtplib.SMTP") as mock_starttls_cls:
-        mock_ssl_cls.return_value.__enter__.side_effect = ConnectionResetError
-        mock_ssl_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_starttls = MagicMock()
-        mock_starttls_cls.return_value.__enter__.return_value = mock_starttls
+def test_warns_instead_of_raising_when_api_unreachable(capsys):
+    with patch("src.notify._get_access_token", return_value="access-token"), \
+         patch("src.notify.requests.post") as mock_post:
+        mock_post.side_effect = requests.exceptions.ConnectionError("connection reset")
         send_new_listings_email([("A", "https://a.com")], 30)
-        assert mock_ssl_cls.call_count == 1
-        assert mock_starttls_cls.call_count == 1
-        mock_starttls.send_message.assert_called_once()
+        assert "Warning" in capsys.readouterr().out
 
 
-def test_warns_instead_of_raising_when_all_ports_blocked(capsys):
-    with patch("src.notify.ssl.create_default_context"), \
-         patch("src.notify.smtplib.SMTP_SSL") as mock_ssl_cls, \
-         patch("src.notify.smtplib.SMTP") as mock_starttls_cls:
-        mock_ssl_cls.return_value.__enter__.side_effect = ConnectionResetError
-        mock_ssl_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_starttls_cls.return_value.__enter__.side_effect = ConnectionResetError
-        mock_starttls_cls.return_value.__exit__ = MagicMock(return_value=False)
+def test_warns_instead_of_raising_on_error_response(capsys):
+    with patch("src.notify._get_access_token", return_value="access-token"), \
+         patch("src.notify.requests.post") as mock_post:
+        response = MagicMock(status_code=401)
+        response.raise_for_status.side_effect = requests.exceptions.HTTPError("401")
+        mock_post.return_value = response
+        send_new_listings_email([("A", "https://a.com")], 30)
+        assert "Warning" in capsys.readouterr().out
+
+
+def test_warns_instead_of_raising_when_token_missing(capsys):
+    with patch("src.notify._get_access_token", side_effect=FileNotFoundError("no token")):
+        send_new_listings_email([("A", "https://a.com")], 30)
+        assert "Warning" in capsys.readouterr().out
+
+
+def test_warns_instead_of_raising_when_refresh_fails(capsys):
+    with patch("src.notify._get_access_token", side_effect=GoogleAuthError("refresh failed")):
         send_new_listings_email([("A", "https://a.com")], 30)
         assert "Warning" in capsys.readouterr().out
 
 
 def test_captcha_email_subject():
-    mock_smtp, _ = _send_captcha()
-    msg = mock_smtp.send_message.call_args[0][0]
+    mock_post = _send_captcha()
+    msg = _decoded_message(mock_post)
     assert "kleinanzeigen" in msg["Subject"]
 
 
 def test_captcha_email_subject_lists_all_platforms():
-    mock_smtp, _ = _send_captcha(["kleinanzeigen", "immoscout"])
-    msg = mock_smtp.send_message.call_args[0][0]
+    mock_post = _send_captcha(["kleinanzeigen", "immoscout"])
+    msg = _decoded_message(mock_post)
     assert "kleinanzeigen" in msg["Subject"]
     assert "immoscout" in msg["Subject"]
 
 
 def test_captcha_email_body_contains_setup_commands():
-    mock_smtp, _ = _send_captcha(["kleinanzeigen", "immoscout", "vr_immobilien"])
-    msg = mock_smtp.send_message.call_args[0][0]
-    body = msg.get_payload()
+    mock_post = _send_captcha(["kleinanzeigen", "immoscout", "vr_immobilien"])
+    body = _decoded_message(mock_post).get_payload()
     assert "--setup kleinanzeigen" in body
     assert "--setup immoscout" in body
     assert "--setup vr_immobilien" in body
 
 
 def test_captcha_email_headers():
-    mock_smtp, _ = _send_captcha()
-    msg = mock_smtp.send_message.call_args[0][0]
+    mock_post = _send_captcha()
+    msg = _decoded_message(mock_post)
     assert msg["From"] == "sender@gmail.com"
     assert msg["To"] == "recipient@gmail.com"

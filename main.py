@@ -1,6 +1,8 @@
 import argparse
 import os
 import re
+from pathlib import Path
+
 import truststore
 from dotenv import load_dotenv
 
@@ -57,6 +59,27 @@ def _run_setup(platforms: list[str]) -> None:
         browser.save_cookies(drv, platform)
         drv.quit()
         print(f"Cookies saved for {platform}.")
+
+
+def _run_gmail_setup() -> None:
+    from google_auth_oauthlib.flow import InstalledAppFlow
+
+    from src.notify import GMAIL_SCOPES, TOKEN_FILE
+
+    config_dir = Path.home() / ".immo-scraper"
+    credentials_file = config_dir / "gmail_credentials.json"
+    if not credentials_file.exists():
+        raise SystemExit(
+            f"No OAuth client secret found at {credentials_file}. "
+            "Download it from Google Cloud Console (OAuth client ID, Desktop app type) and save it there."
+        )
+
+    flow = InstalledAppFlow.from_client_secrets_file(str(credentials_file), scopes=GMAIL_SCOPES)
+    creds = flow.run_local_server(port=0)
+
+    config_dir.mkdir(exist_ok=True)
+    TOKEN_FILE.write_text(creds.to_json())
+    print(f"Gmail token saved to {TOKEN_FILE}.")
 
 
 def load_and_store_data():
@@ -153,9 +176,16 @@ if __name__ == "__main__":
         choices=["immoscout", "vr_immobilien", "kleinanzeigen", "all"],
         help="Run one-time captcha setup for a platform (or all enabled ones)",
     )
+    parser.add_argument(
+        "--setup-gmail",
+        action="store_true",
+        help="Run one-time Gmail API OAuth consent flow for email notifications",
+    )
     args = parser.parse_args()
 
-    if args.setup:
+    if args.setup_gmail:
+        _run_gmail_setup()
+    elif args.setup:
         platforms = (
             [p for p, cfg in _SETUP_PLATFORMS.items() if os.getenv(cfg["env_key"]) == "true"]
             if args.setup == "all"

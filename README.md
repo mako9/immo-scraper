@@ -37,12 +37,15 @@ The scraper can run automatically once a day and send an email when new listings
 
 ```
 GMAIL_USER=you@gmail.com
-GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 NOTIFICATION_RECIPIENT=you@gmail.com
 TOP_N=30
 ```
 
-`GMAIL_APP_PASSWORD` must be a Gmail App Password, not your account password. Generate one at Google Account → Security → 2-Step Verification → App passwords.
+Emails are sent via the Gmail API over HTTPS rather than SMTP, since SMTP ports are often blocked on corporate networks. One-time setup:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project, enable the **Gmail API**, and create an OAuth client ID of type **Desktop app**.
+2. Download the client secret JSON and save it as `~/.immo-scraper/gmail_credentials.json`.
+3. Run `python main.py --setup-gmail` once — a browser opens for you to grant the `gmail.send` scope for `GMAIL_USER`. The resulting token is saved to `~/.immo-scraper/gmail_token.json` and refreshed automatically afterwards; you only need to redo this if the token is revoked.
 
 ### Activate
 

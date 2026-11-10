@@ -156,7 +156,6 @@ def _build_estates_route(
     params = {
         "estateTypeGroupingIds": _ESTATE_TYPE_GROUPINGS[type],
         "offerType": _SALES_OFFER_TYPE,
-        "offererCategoryConfig": "53050180",
         "page": page,
         "pageSize": size,
     }
@@ -184,7 +183,7 @@ def _post_api_request(proxy_url: str, body: dict) -> Optional[dict | list]:
             return response
         except Exception as error:
             print("API request attempt", attempt + 1, "failed, retrying...", error)
-            return None
+            time.sleep(0.2 * (attempt + 1))
     return None
 
 

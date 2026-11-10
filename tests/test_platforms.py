@@ -264,6 +264,63 @@ def test_sparkasse_uses_current_api_and_resolves_location(monkeypatch):
     assert house_query["offerType"] == ["2"]
 
 
+def test_sparkasse_estates_route_omits_offerer_filter():
+    route = sparkasse._build_estates_route(
+        ReportType.HOUSE,
+        page=1,
+        size=10,
+        coordinates=(50.53881, 9.7062),
+        radius_km=10,
+        max_price="1500000",
+    )
+    query = parse_qs(urlparse(route).query)
+    # offererCategoryConfig is the bank's BLZ and restricted results to
+    # Sparkasse-only offers; the site's own frontend omits it in searches.
+    assert "offererCategoryConfig" not in query
+    assert query["estateTypeGroupingIds"] == ["396"]
+    assert query["offerType"] == ["2"]
+    assert query["page"] == ["1"]
+    assert query["pageSize"] == ["10"]
+
+
+def test_sparkasse_post_api_request_retries_on_exception(monkeypatch):
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"estates": []}
+
+    calls = []
+
+    def fake_post(_url, **_kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise ConnectionError("transient failure")
+        return FakeResponse()
+
+    monkeypatch.setattr(sparkasse.requests, "post", fake_post)
+    monkeypatch.setattr(sparkasse.time, "sleep", lambda _s: None)
+
+    result = sparkasse._post_api_request("http://proxy", {"route": "r"})
+
+    assert result == {"estates": []}
+    assert len(calls) == 2
+
+
+def test_sparkasse_post_api_request_returns_none_after_exhausting_retries(monkeypatch):
+    calls = []
+
+    def fake_post(_url, **_kwargs):
+        calls.append(1)
+        raise ConnectionError("persistent failure")
+
+    monkeypatch.setattr(sparkasse.requests, "post", fake_post)
+    monkeypatch.setattr(sparkasse.time, "sleep", lambda _s: None)
+
+    assert sparkasse._post_api_request("http://proxy", {"route": "r"}) is None
+    assert len(calls) == 8
+
+
 # ----- Kleinanzeigen helpers/tests -----
 
 
